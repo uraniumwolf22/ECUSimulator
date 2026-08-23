@@ -1,0 +1,112 @@
+#include <sys/types.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef uint16_t word16;
+typedef uint32_t word32;
+
+#define MAP_BINS 10
+#define RPM_BINS 10
+
+#define LTFTRPM_BINS 16
+#define LTFTMAP_BINS 16
+
+struct Engine {
+    // Static engine variables
+    int displacementPerRev; // Define the engine displacement in L
+    int coldCoolant;        // Threshold under which coolant is considered cold
+
+    // Dynamic engine variables
+    // Sensors
+    word16 TPS;             // Throttle position sensor
+    word16 RPM;             // Engine speed in RPM
+    word16 MAP;             // Manifold air pressure represented as Pa /10
+    word16 AAP;             // Ambient pressure represented as ambient Pa /10
+    word16 IAT;             // Intake air temperature measured in K
+    word16 OXVoltage;       // Oxygen sensor voltage
+    word16 COOLANT;         // Coolant tempurature in F
+    word16 fuelTrim;        // Manual fuel trim
+
+    // Calculated values
+    word16 fuelLoad;                // Current fuel load
+    word16 VE;                      // Current volumetric efficiency
+    word16 STFTCorrection;            // Fuel correction value based on POSTAFR and AFR delta
+    word16 LTFTCorrection;
+    word16 REALAFR;                 // AFR detected by the oxygen sensor
+    float AFR_TARGET;               // Current target AFR
+    float toeEnrichmentMultiplier;  // Enrichment based off the rate of change of the TPS sensor
+
+    // Engine Flags
+    bool EngineCranking;    // Cranking state of engine
+    bool Coldstart;         // Is the ECU Booting into a cold start condition
+
+    // Utility variables
+    word16 lastTPSValue;    // TPS Value on the last loop
+    word16 TIFE;            // toe-in fuel enrichment
+    int AFRIntigralAccumulator; // accumulator for the STFT intigral
+
+};
+
+struct ECUSchedule {        // Schedule certian unimportant heavy tasks to leave headroom for primary calculations
+    int ECULoopSize;        // Size of steps per loop of the scheduler
+    int ECUStep;            // Current step of the loop the ECU is on
+    
+    int crankCheckInterval; // How often we check for a cranking condition
+    int TPSCheckInterval;   // How often we check the throttle position sensor
+    long long timeLastChecked;
+};
+
+// Y axis
+
+// CURRENT RPM 1000
+// CURRENT MAP 20
+const uint16_t mapAxis[MAP_BINS] = {15, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+
+// X axis
+const uint16_t rpmAxis[RPM_BINS] = {600, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000};
+
+// VE Table
+const uint8_t VETable[MAP_BINS * RPM_BINS] = {
+// 600, 1k, 1.5k, 2k, 2.5k, 3k, 3.5k, 4k, 5k, 6k
+    30, 33, 37, 40, 43, 45, 47, 45, 42, 40,  // 15 kPa
+    33, 36, 40, 44, 47, 50, 52, 50, 47, 45,  // 20 kPa
+    38, 42, 47, 52, 55, 58, 60, 58, 54, 51,  // 30 kPa
+    43, 47, 53, 58, 62, 65, 67, 65, 60, 56,  // 40 kPa
+    48, 52, 58, 64, 68, 71, 73, 71, 65, 61,  // 50 kPa
+    51, 56, 63, 68, 74, 77, 79, 77, 70, 65,  // 60 kPa
+    55, 60, 67, 73, 78, 82, 84, 82, 74, 68,  // 70 kPa
+    58, 63, 71, 77, 81, 85, 87, 85, 77, 70,  // 80 kPa
+    62, 67, 75, 80, 85, 88, 90, 88, 80, 73,  // 90 kPa
+    65, 70, 78, 83, 87, 91, 93, 90, 82, 75   // 100 kPa 
+    };
+
+// AFR table
+const float afrTable[MAP_BINS * RPM_BINS] = {
+    // 600,  1k,   1.5k, 2k,   2.5k, 3k,   3.5k, 4k,   5k,   6k
+    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 15 kPa
+    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 20 kPa
+    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 30 kPa
+    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.5, 14.5, // 40 kPa
+    14.7, 14.7, 14.7, 14.7, 14.5, 14.5, 14.5, 14.2, 14.0, 14.0, // 50 kPa
+    14.5, 14.5, 14.5, 14.5, 14.2, 14.0, 14.0, 13.8, 13.5, 13.5, // 60 kPa
+    14.0, 14.0, 14.0, 13.8, 13.5, 13.5, 13.2, 13.0, 13.0, 12.8, // 70 kPa
+    13.5, 13.5, 13.5, 13.2, 13.0, 13.0, 12.8, 12.8, 12.5, 12.5, // 80 kPa
+    13.0, 13.0, 13.0, 12.8, 12.5, 12.5, 12.5, 12.5, 12.2, 12.2, // 90 kPa
+    12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.2, 12.2, 12.0, 12.0  // 100 kPa
+};
+
+const uint16_t LTFTRPMAxis[LTFTRPM_BINS] = {375, 750, 1125, 1500, 1875, 2250, 2625, 3000,    // 16 bins for LTFT RPM
+                                            3375, 3750, 4125, 4500, 4875, 5250, 5625, 6000}; // 16 bins for LTFT KPa
+
+const uint16_t LTFTMAPAxis[LTFTMAP_BINS] = {8, 16, 24, 32, 40, 48, 56, 64,
+                                             72, 80, 88, 96, 104, 112, 120, 128};
+
+
+float LTFT[256] = {0};  // Initialize a 16x16 array for the long term fuel trims
+
+void debug(struct Engine *engine) {
+  printf("\e[H\nTPS: %d\nRPM: %d\nMAP: %d\nAAP: %d\nIAT: %d\nOXVoltage: %d\nVE: %d\nAFRTAR: "
+         "%d\nCOOLANT:%d\nfuelTrim: %d\nTOEENR: %f\n",
+         engine->TPS, engine->RPM, engine->MAP, engine->AAP, engine->IAT,
+         engine->OXVoltage, engine->VE, engine->AFR_TARGET, engine->COOLANT, engine->fuelTrim,engine->toeEnrichmentMultiplier);
+}
