@@ -1,0 +1,3 @@
+[submodule "ecu-gui"]
+	path = ecu-gui
+	url = https://github.com/TakingFire/ecu-gui
