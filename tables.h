@@ -30,8 +30,8 @@ struct Engine {
     // Calculated values
     word16 fuelLoad;                // Current fuel load
     word16 VE;                      // Current volumetric efficiency
-    int STFTCorrection;             // Fuel correction value based on POSTAFR and AFR delta
-    word16 LTFTCorrection;
+    int16_t STFTCorrection;             // Fuel correction value based on POSTAFR and AFR delta
+    int16_t LTFTCorrection;
     float REALAFR;                 // AFR detected by the oxygen sensor
     float AFR_TARGET;               // Current target AFR
     float toeEnrichmentMultiplier;  // Enrichment based off the rate of change of the TPS sensor
@@ -111,7 +111,7 @@ const uint16_t LTFTMAPAxis[LTFTMAP_BINS] = {8, 16, 24, 32, 40, 48, 56, 64,
 float LTFT[256] = {0};  // Initialize a 16x16 array for the long term fuel trims
 
 void debug(struct Engine *engine) {
-  printf("\e[H\nTPS: %d\nRPM: %d\nMAP: %d\nAAP: %d\nIAT: %d\nOXVoltage: %d\nVE: %d\nAFRTAR: %f\nCOOLANT: %d\nfuelTrim: %d\nTOEENR: %f\nSTFT: %d\n",
+  printf("\e[H\nTPS: %d\nRPM: %d\nMAP: %d\nAAP: %d\nIAT: %d\nOXVoltage: %d\nVE: %d\nAFRTAR: %f\nCOOLANT: %d\nfuelTrim: %d\nTOEENR: %f\nSTFT: %d\nRAFR: %f\n",
          engine->TPS, engine->RPM, engine->MAP, engine->AAP, engine->IAT,
-         engine->OXVoltage, engine->VE, engine->AFR_TARGET, engine->COOLANT, engine->fuelTrim,engine->toeEnrichmentMultiplier,engine->STFTCorrection);
+         engine->OXVoltage, engine->VE, engine->AFR_TARGET, engine->COOLANT, engine->fuelTrim,engine->toeEnrichmentMultiplier,engine->STFTCorrection,engine->REALAFR);
 }

@@ -164,31 +164,10 @@ void correctFuelLoad(struct Engine *eng){
 
 }
 
-// PI controller broke.  Going with different approach
-// void calculateSTFT(struct Engine *eng){
-//     int AFRDELTA = (eng->REALAFR) - (int)(eng->AFR_TARGET);  // Calculate AFR delta and convert to intager eg 14.7 = 147
-//     printf("AFR DELTA: %d\n",AFRDELTA);
-
-//     int P = AFRDELTA / 2;      // Calculate porportional,  by dividing the delta by 2
-
-//     int IntigralStep = AFRDELTA >> 3;   // Calculate the intigral for the current step
-
-//     eng->AFRIntigralAccumulator += IntigralStep;    // Apply intigral to the accumulator
-
-//     printf("ACCUMULATOR: %d\n",eng->AFRIntigralAccumulator);
-//     if (eng->AFRIntigralAccumulator > MAXSTFT){     // Check if MAXSTFT is hit
-//         eng->AFRIntigralAccumulator = MAXSTFT;          
-//     } else if (eng->AFRIntigralAccumulator < MINSTFT){  // Check in MINSTFT is hit
-//         eng->AFRIntigralAccumulator = MINSTFT;
-//     }
-//     eng->STFTCorrection = (P + eng->AFRIntigralAccumulator); // Set the oxygen correction and scale back.
-//     printf("STFTCORR: %d",eng->STFTCorrection);
-// } 
-
 void calculateSTFT(struct Engine *eng){                     // Calculated STFT correction in %
     int AFRDELTA = (int)(eng->REALAFR) - (int)(eng->AFR_TARGET);
-    printf("REALAFR: %f\n",eng->REALAFR);
-    printf("AFRDELTA: %d\n",AFRDELTA);
+    //printf("REALAFR: %f\n",eng->REALAFR);
+    //printf("AFRDELTA: %d\n",AFRDELTA);
 
     int correction = AFRDELTA / STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
     eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT
@@ -199,7 +178,7 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     if(eng->STFTCorrection <= MINSTFT){
         eng->STFTCorrection = MINSTFT;
     }
-    printf("STFTCORR: %d\n\n",eng->STFTCorrection);
+    //printf("STFTCORR: %d\n\n",eng->STFTCorrection);
 }
 
 int calculateLowerBinIdx(int value, const uint16_t axis[], int numBins){
@@ -448,7 +427,7 @@ int main(){
         *sharedData = engineInstance;              // Update shared data
 
         sem_post(engineSem);        // Unlock SEM for other programs
-	    //debug(&engineInstance);
+	    debug(&engineInstance);
     }
 
     // while(1){
