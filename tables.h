@@ -32,7 +32,7 @@ struct Engine {
     word16 VE;                      // Current volumetric efficiency
     int STFTCorrection;             // Fuel correction value based on POSTAFR and AFR delta
     word16 LTFTCorrection;
-    word16 REALAFR;                 // AFR detected by the oxygen sensor
+    float REALAFR;                 // AFR detected by the oxygen sensor
     float AFR_TARGET;               // Current target AFR
     float toeEnrichmentMultiplier;  // Enrichment based off the rate of change of the TPS sensor
 
@@ -58,6 +58,7 @@ struct ECUSchedule {        // Schedule certian unimportant heavy tasks to leave
     bool CrankCheckLock;    // Locks the crank check function until the ECUStep increases so the function isnt repeated multiple times per ms
     bool TPSCheckLock;
     bool STFTCheckLock;
+
     long long loopIntervalTimeBase; // The current system time when the last ECUStep was incrimented
 };
 

@@ -56,7 +56,7 @@ class Engine(ctypes.Structure):
         ("VE", ctypes.c_uint16),
         ("STFTCorrection", ctypes.c_uint16),
         ("LTFTCorrection", ctypes.c_uint16),
-        ("REALAFR", ctypes.c_uint16),
+        ("REALAFR", ctypes.c_float),
         ("AFR_TARGET", ctypes.c_float),
         ("toeEnrichmentMultiplier", ctypes.c_float),
 

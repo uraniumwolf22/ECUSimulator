@@ -186,7 +186,9 @@ void correctFuelLoad(struct Engine *eng){
 // } 
 
 void calculateSTFT(struct Engine *eng){                     // Calculated STFT correction in %
-    int AFRDELTA = (eng->REALAFR) - (int)(eng->AFR_TARGET);
+    int AFRDELTA = (int)(eng->REALAFR) - (int)(eng->AFR_TARGET);
+    printf("REALAFR: %f\n",eng->REALAFR);
+    printf("AFRDELTA: %d\n",AFRDELTA);
 
     int correction = AFRDELTA / STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
     eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT
@@ -197,6 +199,7 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     if(eng->STFTCorrection <= MINSTFT){
         eng->STFTCorrection = MINSTFT;
     }
+    printf("STFTCORR: %d\n\n",eng->STFTCorrection);
 }
 
 int calculateLowerBinIdx(int value, const uint16_t axis[], int numBins){
@@ -269,31 +272,38 @@ void initValues(struct Engine *eng, struct ECUSchedule *sched){
     eng->fuelTrim = initFuelTrim;
     eng->IAT = KtoFConversion(70);                             // Set intake air tempurature to 70F on boot
     eng->toeEnrichmentMultiplier = 1;
+    eng->REALAFR = eng->AFR_TARGET;
 
     sched->ECULoopSize = loopSize;                      // Set the total loop size before the logic repeats
     sched->ECUStep = 0;
     sched->crankCheckInterval = 5;                      // Interval at which the ECU checks for cranking
     sched->TPSCheckInterval = TPSCheck;
-    sched->timeLastChecked = get_time_in_ms();
+    sched->loopIntervalTimeBase = get_time_in_ms();
     sched->STFTCheckInterval = STFTInterval;
+
+    sched->STFTCheckLock = false;                       // Init the scheduler locks
+    sched->CrankCheckLock = false;
+    sched->TPSCheckLock = false;
 
 }
 
 void performStep(struct Engine *eng, struct ECUSchedule *sched){
     
 
-    if (sched->ECUStep % sched->crankCheckInterval == 0){           // Check engine cranking status on interval
+    if (sched->ECUStep % sched->crankCheckInterval == 0 && sched->CrankCheckLock == false){           // Check engine cranking status on interval
         if (eng->RPM < CRANKING_RPM){
             eng->EngineCranking = true;
         } else {eng->EngineCranking = false;}
+        sched->CrankCheckLock = true;
     }
 
     if (eng->COOLANT < eng->coldCoolant){               // On init determine if engine is cold. If so, set the flag.
         eng->Coldstart = true;
     }
 
-    if (sched->ECUStep % sched->TPSCheckInterval == 0){             // Calculate Toe in Enrichment on schedule
+    if (sched->ECUStep % sched->TPSCheckInterval == 0 && sched->TPSCheckLock == false){             // Calculate Toe in Enrichment on schedule
         //calculateToeEnrichment(eng);   //Disabled until I can figure out whats going on
+        sched->TPSCheckLock = true;
     }
 
     calculateVE(eng);                   // Update volumetric efficiency
@@ -301,12 +311,14 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     calculateAFR(eng);                  // Calculate VE
 
     calculateFuelLoad(eng);             // Calculate the base fuel load
-    if (sched->ECUStep % sched->STFTCheckInterval == 0){
-        // printf("STFT TRIGGERED\n");
+
+    if (sched->ECUStep % sched->STFTCheckInterval == 0 && sched->STFTCheckLock == false){
+        //printf("STFT TRIGGERED\n");
         calculateSTFT(eng);
+        sched->STFTCheckLock = true;
     }
 
-    calculateLTFT(eng);
+    //calculateLTFT(eng);
 
     correctFuelLoad(eng);               // Adjust fuel load for transient conditions
 
@@ -316,6 +328,9 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     if(currentTime - sched->loopIntervalTimeBase >= 10){          // Check if 10MS has passed
         sched->ECUStep++;
         //printf("Increased\n");
+        sched->TPSCheckLock = false;
+        sched->CrankCheckLock = false;
+        sched->STFTCheckLock = false;
         sched->loopIntervalTimeBase = currentTime;
         
     }
