@@ -54,8 +54,8 @@ class Engine(ctypes.Structure):
         # Calculated Values
         ("fuelLoad", ctypes.c_uint16),
         ("VE", ctypes.c_uint16),
-        ("STFTCorrection", ctypes.c_int16),
-        ("LTFTCorrection", ctypes.c_int16),
+        ("STFTCorrection", ctypes.c_float),
+        ("LTFTCorrection", ctypes.c_float),
         ("REALAFR", ctypes.c_float),
         ("AFR_TARGET", ctypes.c_float),
         ("toeEnrichmentMultiplier", ctypes.c_float),

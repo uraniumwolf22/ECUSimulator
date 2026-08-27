@@ -21,7 +21,8 @@ This is the C based fueling-only ECU developed by Logan Ross <3
 
 // Tuning values
 #define TPSCheck 30                 // Rate at which the scheduler runs the TPS check - 300ms
-#define STFTInterval 50
+#define STFTInterval 5             //50ms
+#define LTFTInterval 5
 #define TPSDeadband 2               // Band at which toe-in enrichment does not occur
 #define toeInEnrichmentDecay 99     // % of enrichment to keep per itteration
 
@@ -157,7 +158,7 @@ void correctFuelLoad(struct Engine *eng){
     eng->fuelLoad = eng->fuelLoad * eng->toeEnrichmentMultiplier;
 
     //TODO:  
-    //eng->fuelLoad = eng->fuelLoad * eng->STFTCorrection;    // Adjust for STFT
+    eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->STFTCorrection / 100));    // Adjust for STFT
 
     // LTFT probably should not update during cranking or cold start
     //eng->fuelLoad = eng->fuelLoad * eng->LTFTCorrection;    // Adjust for LTFT
@@ -165,11 +166,11 @@ void correctFuelLoad(struct Engine *eng){
 }
 
 void calculateSTFT(struct Engine *eng){                     // Calculated STFT correction in %
-    int AFRDELTA = (int)(eng->REALAFR) - (int)(eng->AFR_TARGET);
+    float AFRDELTA = (eng->REALAFR) - (eng->AFR_TARGET);
     //printf("REALAFR: %f\n",eng->REALAFR);
     //printf("AFRDELTA: %d\n",AFRDELTA);
 
-    int correction = AFRDELTA / STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
+    float correction = AFRDELTA / STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
     eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT
 
     if(eng->STFTCorrection >= MAXSTFT){                     // Make sure STFT is not maxed out
@@ -178,6 +179,14 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     if(eng->STFTCorrection <= MINSTFT){
         eng->STFTCorrection = MINSTFT;
     }
+    if(AFRDELTA > 0 && eng->STFTCorrection < 0){
+        eng->STFTCorrection = 0;
+    }
+    
+    if(AFRDELTA < 0 && eng->STFTCorrection > 0){
+    eng->STFTCorrection = 0;
+    }
+
     //printf("STFTCORR: %d\n\n",eng->STFTCorrection);
 }
 
@@ -294,10 +303,19 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     if (sched->ECUStep % sched->STFTCheckInterval == 0 && sched->STFTCheckLock == false){
         //printf("STFT TRIGGERED\n");
         calculateSTFT(eng);
+        calculateSTFT(eng);
+
         sched->STFTCheckLock = true;
     }
 
-    //calculateLTFT(eng);
+    // CHANGE ME TO OWN SCHED
+    // if (sched->ECUStep % sched->STFTCheckInterval == 0 && sched->STFTCheckLock == false){
+    //     //printf("STFT TRIGGERED\n");
+    //     calculateSTFT(eng);
+    //     sched->STFTCheckLock = true;
+    // }
+
+    calculateLTFT(eng);
 
     correctFuelLoad(eng);               // Adjust fuel load for transient conditions
 
