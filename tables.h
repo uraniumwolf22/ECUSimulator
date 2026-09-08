@@ -20,8 +20,8 @@ struct Engine {
     // Sensors
     word16 TPS;             // Throttle position sensor
     word16 RPM;             // Engine speed in RPM
-    word16 MAP;             // Manifold air pressure represented as Pa /10
-    word16 AAP;             // Ambient pressure represented as ambient Pa /10
+    word16 MAP;             // Manifold air pressure represented as KPa
+    word16 AAP;             // Ambient pressure represented as KPa
     word16 IAT;             // Intake air temperature measured in K
     word16 OXVoltage;       // Oxygen sensor voltage
     word16 COOLANT;         // Coolant tempurature in F

@@ -77,6 +77,17 @@ void calculateToeEnrichment(struct Engine *eng){                // Calculated th
 
 }
 
+int calculateLowerBinIdx(int value, const uint16_t axis[], int numBins){
+    int currentBinIdx = 0;
+    for(int i = numBins - 1; i >= 0; i--){
+        if (value >= axis[i]){
+            currentBinIdx = (i == 0) ? 0 : i - 1;
+            break;
+        }
+    }
+    return currentBinIdx;
+}
+
 void calculateAFR(struct Engine *eng){      // Fetches current AFR with lookup table
     int MAPBin = MAP_BINS - 1;
     int RPMBin = RPM_BINS - 1;
@@ -179,32 +190,22 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     if(eng->STFTCorrection <= MINSTFT){
         eng->STFTCorrection = MINSTFT;
     }
-    if(AFRDELTA > 0 && eng->STFTCorrection < 0){
+    if(AFRDELTA >= 0 && eng->STFTCorrection < 0){
         eng->STFTCorrection = 0;
     }
     
-    if(AFRDELTA < 0 && eng->STFTCorrection > 0){
+    if(AFRDELTA <= 0 && eng->STFTCorrection > 0){
     eng->STFTCorrection = 0;
     }
 
     //printf("STFTCORR: %d\n\n",eng->STFTCorrection);
 }
 
-int calculateLowerBinIdx(int value, const uint16_t axis[], int numBins){
-    int currentBinIdx = 0;
-    for(int i = 0; i < numBins; i++){
-        if (value < axis[i]){
-            currentBinIdx = i - 1;
-        }
-    }
-    return currentBinIdx;
-}
-
 void calculateLTFT(struct Engine *eng){
     // X is RPM Y is KPA
     // X coordinate is the current RPM bin you are in same for Y but with Kpa
     int engineRPM = eng->RPM;
-    int MAPKPA = eng->MAP / 100;
+    word16 MAPKPA = eng->MAP;
 
     // Find upper and lower bins of RPM (X)
     int lowerRPMBin = calculateLowerBinIdx(engineRPM, LTFTRPMAxis, LTFTRPM_BINS);   // Lower bin on X axis
@@ -217,16 +218,23 @@ void calculateLTFT(struct Engine *eng){
     float RPMWeight = (engineRPM - LTFTRPMAxis[lowerRPMBin]) / LTFTRPMAxis[0];           // Calculate bin bias for RPM (X)
     float MAPWeight = (MAPKPA - LTFTMAPAxis[lowerMAPBin]) / LTFTMAPAxis[0];              // Calculate bin bias for MAP (Y)
 
+    //printf("RPMWeight: %f\nMAPWeight: %f\n");
+
     float topLeftShare = (1 - RPMWeight) * MAPWeight;                       // Calculate % shares for each cell
     float topRightShare = RPMWeight * MAPWeight;
     float bottomLeftShare = (1 - RPMWeight) * (1 - MAPWeight);
     float bottomRightShare = RPMWeight * (1 - MAPWeight);
 
+    //printf("\e[H\nTOPLEFT %f TOPRIGHT: %f\n BOTLEFT %f BOTRIGHT %f\n",topLeftShare,topRightShare,bottomLeftShare,bottomRightShare);
+
     // Calculate cell indexes
-    int topLeftCell_idx = (lowerMAPBin * RPM_BINS) + lowerRPMBin;           // Index of top left cell
-    int topRightCell_idx = (lowerMAPBin * RPM_BINS) + upperRPMBin;          // Index of top right cell
-    int bottomLeftCell_idx = (upperMAPBin * RPM_BINS) + lowerRPMBin;        // Index of bottom left cell
-    int bottomRightCell_idx = (upperMAPBin * RPM_BINS) + upperMAPBin;       // Index of bottom right cell
+    int topLeftCell_idx = (lowerMAPBin * LTFTRPM_BINS) + lowerRPMBin;           // Index of top left cell
+    int topRightCell_idx = (lowerMAPBin * LTFTRPM_BINS) + upperRPMBin;          // Index of top right cell
+    int bottomLeftCell_idx = (upperMAPBin * LTFTRPM_BINS) + lowerRPMBin;        // Index of bottom left cell
+    int bottomRightCell_idx = (upperMAPBin * LTFTRPM_BINS) + upperRPMBin;       // Index of bottom right cell
+
+    //printf("\e[H\nTLIDX: %d\nTRIDX: %d\nBLIDX: %d\nBRIDX: %d\n",topLeftCell_idx,topRightCell_idx,bottomLeftCell_idx,bottomRightCell_idx);
+
 
     float stepDirection = 0.0;
 
@@ -261,6 +269,7 @@ void initValues(struct Engine *eng, struct ECUSchedule *sched){
     eng->IAT = KtoFConversion(70);                             // Set intake air tempurature to 70F on boot
     eng->toeEnrichmentMultiplier = 1;
     eng->REALAFR = eng->AFR_TARGET;
+    eng->AAP = 101;
 
     sched->ECULoopSize = loopSize;                      // Set the total loop size before the logic repeats
     sched->ECUStep = 0;
@@ -445,7 +454,7 @@ int main(){
         *sharedData = engineInstance;              // Update shared data
 
         sem_post(engineSem);        // Unlock SEM for other programs
-	    debug(&engineInstance);
+	    //debug(&engineInstance);
     }
 
     // while(1){

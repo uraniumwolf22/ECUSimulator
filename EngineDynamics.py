@@ -1,70 +1,128 @@
-import math
+import ctypes
+from multiprocessing import shared_memory
+import subprocess
+import time
+from pathlib import Path
+import posix_ipc
+from math import sqrt, pi
+from MAPFunctions import *
+from RPMFunctions import *
+from EngineTunables import *
 
-# Base parameters
-flywheelMass = 18.0      # mass in Kg
-flywheelRadius = 0.18    # radius in m
-inertia = 0.5 * flywheelMass * (flywheelRadius ** 2) # moment of inertia
+SIMULATOR_DIR = Path(__file__).resolve().parent
+ECU_EMULATOR_PATH = SIMULATOR_DIR / "ECU"
+SEM_NAME = "/engineSemaphore_local"
+MEMORY_NAME = "engineStateMemory_local"
 
-staticDrag    = 15.0 
-linearDrag    = 0.01
-quadraticDrag = 0.00002
+# GLOBAL PARAMETERS
 
-TPS = 10                # current TPS
-RPM = 500.0
-velocity = RPM * (2 * math.pi) / 60.0  # Initialize velocity
+timeStep = 0.01
 
-physicsTimestep = 0.1
+# Static variables
+heatRatioOfAir      = 1.4           # Specific heat ratio of air
+airGasConst         = 287.05        # Ideal gas constant of dry air
 
-rpm_axis = [500, 800, 1100, 1400, 1700, 2000, 2300, 2600, 2900, 3200, 3500, 3800, 4100, 4400, 4700, 5000]
+# Mass flow unit conversions
+manifoldVolume  = manifoldVolume / 1000     # Convert L to M^3
+cylinderVolume  = cylinderVolume / 1000     # Convert L to M^3
 
-torque_percent = [75, 80, 85, 88, 92, 95, 97, 99, 100, 100, 97, 92, 86, 78, 69, 60]
+# RPM Dynamics variables
+inertia         = 0.5 * flywheelMass * (flywheelRadius ** 2) # moment of inertia
+velocity        = 0 # Starting velocity
 
-peakTorque = 310.0  
+rpm_axis = [500, 800, 1100, 1400,
+            1700, 2000, 2300, 2600,
+            2900, 3200, 3500, 3800,
+            4100, 4400, 4700, 5000]
 
-def getEngineTorque(current_rpm) -> float:
-    # Clamp RPM
-    clamped_rpm = max(rpm_axis[0], min(rpm_axis[-1], current_rpm))
-    
-    for i in range(len(rpm_axis) - 1):
-        if rpm_axis[i] <= clamped_rpm <= rpm_axis[i+1]:
-            # Linear interpolation
-            rpm_range = rpm_axis[i+1] - rpm_axis[i]
-            t_range = torque_percent[i+1] - torque_percent[i]
+torque_percent = [75, 80, 85, 88,
+                  92, 95, 97, 99,
+                  100, 100, 97, 92,
+                  86, 78, 69, 60]
+
+
+
+
+# Define the engine struct modeled after tables.h
+class Engine(ctypes.Structure):
+    _fields_ = [
+        # Static engine variables
+        ("displacementPerRev", ctypes.c_int),
+        ("coldCoolant", ctypes.c_int),
+
+        # Sensors
+        ("TPS", ctypes.c_uint16),
+        ("RPM", ctypes.c_uint16),
+        ("MAP", ctypes.c_uint16),
+        ("AAP", ctypes.c_uint16),
+        ("IAT", ctypes.c_uint16),
+        ("OXVoltage", ctypes.c_uint16),
+        ("COOLANT", ctypes.c_uint16),
+        ("fuelTrim", ctypes.c_uint16),
+
+        # Calculated Values
+        ("fuelLoad", ctypes.c_uint16),
+        ("VE", ctypes.c_uint16),
+        ("STFTCorrection", ctypes.c_float),
+        ("LTFTCorrection", ctypes.c_float),
+        ("REALAFR", ctypes.c_float),
+        ("AFR_TARGET", ctypes.c_float),
+        ("toeEnrichmentMultiplier", ctypes.c_float),
+
+        # Engine flags
+        ("EngineCranking", ctypes.c_bool),
+        ("Coldstart", ctypes.c_bool),
+
+        # Utility Variables
+        ("lastTPSValue", ctypes.c_uint16),
+        ("TIFE", ctypes.c_uint16),
+        ("AFRIntigralAccumulator", ctypes.c_uint16)
+    ]
+
+def main():
+    time.sleep(0.1)  # Delay for process's to init
+
+    sem = posix_ipc.Semaphore(SEM_NAME)   
+    enginedata = shared_memory.SharedMemory(name=MEMORY_NAME, create=False)
+    engineStatus = Engine.from_buffer(enginedata.buf)                           
+
+    currentRPM = 0
+
+    try:
+        while 1:
+            time.sleep(timeStep)
+            sem.acquire()                   
+
+            # Read the current states
+            currentTPS = engineStatus.TPS
+            atmosphericPressure = engineStatus.AAP * 1000
+            volumetric = engineStatus.VE / 100
+            IAT = engineStatus.IAT
+            butterflyPercentOpen = (currentTPS / 100.0) ** 2
+            throttleArea = butterflyPercentOpen * throttleBodySize * dischargeCoeff
+            # RPM Physics
+            currentRPM = PhysicsStep(currentTPS, currentRPM, staticDrag, linearDrag,
+                                     quadraticDrag, inertia,timeStep,
+                                     rpm_axis, torque_percent, peakTorque)
             
-            ratio = (clamped_rpm - rpm_axis[i]) / rpm_range
-            percent = torque_percent[i] + (ratio * t_range)
+            engineStatus.RPM = int(currentRPM)
+
+            # 3. MAP Physics
+            calculated_map = calculateManifoldPressure(
+                engineStatus.MAP * 1000, timeStep, atmosphericPressure, 
+                manifoldVolume, IAT, throttleArea, heatRatioOfAir, 
+                airGasConst, cylinderVolume, currentRPM, volumetric
+            )
             
-            # Convert percent to nm of peak tq
-            return (percent / 100.0) * peakTorque
+            # Clamp to atmosphere
+            engineStatus.MAP = min(int(calculated_map / 1000), int(atmosphericPressure / 1000))
             
-    return 0.0
+            sem.release()
 
-def PhysicsStep():
-    global RPM, velocity
+    finally:
+        del engineStatus
+        enginedata.close()
+        sem.close()
 
-    # current engine drag
-    engineDrag = staticDrag + (linearDrag * RPM) + (quadraticDrag * (RPM ** 2))
-
-    # Calculate current engine torque
-    currentMaxTorque = getEngineTorque(RPM)
-    combustionTorque = currentMaxTorque * (TPS / 100.0)
-
-    # net torque
-    netTorque = combustionTorque - engineDrag
-
-    currentAcceleration = netTorque / inertia
-    
-    velocity += currentAcceleration * physicsTimestep
-
-    # Prevent backwards velocity
-    if velocity < 0:
-        velocity = 0
-
-    RPM = velocity * 60.0 / (2 * math.pi)
-
-print("Time | RPM")
-print("----------------")
-for i in range(100):
-    PhysicsStep()
-    current_time = round((i + 1) * physicsTimestep, 1)
-    print(f"{current_time:5}s  | {int(RPM)}")
+if __name__ == "__main__":
+    main()
