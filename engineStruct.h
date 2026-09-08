@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <stdint.h>
+#ifndef ENGINE_STRUCT_H
+#define ENGINE_STRUCT_H
+
+#include "includes.h"
 
 typedef uint16_t word16;
 typedef uint32_t word32;
@@ -57,8 +57,10 @@ struct ECUSchedule {        // Schedule certian unimportant heavy tasks to leave
     long long loopIntervalTimeBase; // The current system time when the last ECUStep was incrimented
 };
 
-void debug(struct Engine *engine) {
-  printf("\e[H\nTPS: %d\nRPM: %d\nMAP: %d\nAAP: %d\nIAT: %d\nOXVoltage: %d\nVE: %d\nAFRTAR: %f\nCOOLANT: %d\nfuelTrim: %d\nTOEENR: %f\nSTFT: %f\nRAFR: %f\n",
-         engine->TPS, engine->RPM, engine->MAP, engine->AAP, engine->IAT,
-         engine->OXVoltage, engine->VE, engine->AFR_TARGET, engine->COOLANT, engine->fuelTrim,engine->toeEnrichmentMultiplier,engine->STFTCorrection,engine->REALAFR);
-}
+// void debug(struct Engine *engine) {
+//   printf("\e[H\nTPS: %d\nRPM: %d\nMAP: %d\nAAP: %d\nIAT: %d\nOXVoltage: %d\nVE: %d\nAFRTAR: %f\nCOOLANT: %d\nfuelTrim: %d\nTOEENR: %f\nSTFT: %f\nRAFR: %f\n",
+//          engine->TPS, engine->RPM, engine->MAP, engine->AAP, engine->IAT,
+//          engine->OXVoltage, engine->VE, engine->AFR_TARGET, engine->COOLANT, engine->fuelTrim,engine->toeEnrichmentMultiplier,engine->STFTCorrection,engine->REALAFR);
+// }
+
+#endif

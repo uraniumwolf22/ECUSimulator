@@ -1,3 +1,6 @@
+#ifndef TUNABLES_H
+#define TUNABLES_H
+
 //////// SCHEDULER ////////
 
 #define TPSCheck                300    // 300ms
@@ -36,3 +39,5 @@
 //////// MISC ////////
 #define onBootAFR               12.5    // AFR Value to initialize with
 #define CRANKING_RPM            250     // RPM below which we consider the motor to be cranking
+
+#endif

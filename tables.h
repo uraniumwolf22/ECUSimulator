@@ -1,50 +1,26 @@
+#ifndef TABLES_H
+#define TABLES_H
+
+#include "includes.h"
+
 #define MAP_BINS 10
 #define RPM_BINS 10
 
 #define LTFTRPM_BINS 16
 #define LTFTMAP_BINS 16
 
+extern const uint16_t mapAxis[MAP_BINS];
 
-const uint16_t mapAxis[MAP_BINS] = {15, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+extern const uint16_t rpmAxis[RPM_BINS];
 
-// X axis
-const uint16_t rpmAxis[RPM_BINS] = {600, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000};
+extern const uint8_t VETable[MAP_BINS * RPM_BINS];
 
-// VE Table
-const uint8_t VETable[MAP_BINS * RPM_BINS] = {
-// 600, 1k, 1.5k, 2k, 2.5k, 3k, 3.5k, 4k, 5k, 6k
-    30, 33, 37, 40, 43, 45, 47, 45, 42, 40,  // 15 kPa
-    33, 36, 40, 44, 47, 50, 52, 50, 47, 45,  // 20 kPa
-    38, 42, 47, 52, 55, 58, 60, 58, 54, 51,  // 30 kPa
-    43, 47, 53, 58, 62, 65, 67, 65, 60, 56,  // 40 kPa
-    48, 52, 58, 64, 68, 71, 73, 71, 65, 61,  // 50 kPa
-    51, 56, 63, 68, 74, 77, 79, 77, 70, 65,  // 60 kPa
-    55, 60, 67, 73, 78, 82, 84, 82, 74, 68,  // 70 kPa
-    58, 63, 71, 77, 81, 85, 87, 85, 77, 70,  // 80 kPa
-    62, 67, 75, 80, 85, 88, 90, 88, 80, 73,  // 90 kPa
-    65, 70, 78, 83, 87, 91, 93, 90, 82, 75   // 100 kPa 
-    };
+extern const float afrTable[MAP_BINS * RPM_BINS];
 
-// AFR table
-const float afrTable[MAP_BINS * RPM_BINS] = {
-    // 600,  1k,   1.5k, 2k,   2.5k, 3k,   3.5k, 4k,   5k,   6k
-    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 15 kPa
-    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 20 kPa
-    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, // 30 kPa
-    14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.5, 14.5, // 40 kPa
-    14.7, 14.7, 14.7, 14.7, 14.5, 14.5, 14.5, 14.2, 14.0, 14.0, // 50 kPa
-    14.5, 14.5, 14.5, 14.5, 14.2, 14.0, 14.0, 13.8, 13.5, 13.5, // 60 kPa
-    14.0, 14.0, 14.0, 13.8, 13.5, 13.5, 13.2, 13.0, 13.0, 12.8, // 70 kPa
-    13.5, 13.5, 13.5, 13.2, 13.0, 13.0, 12.8, 12.8, 12.5, 12.5, // 80 kPa
-    13.0, 13.0, 13.0, 12.8, 12.5, 12.5, 12.5, 12.5, 12.2, 12.2, // 90 kPa
-    12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.2, 12.2, 12.0, 12.0  // 100 kPa
-};
+extern const uint16_t LTFTRPMAxis[LTFTRPM_BINS];
 
-const uint16_t LTFTRPMAxis[LTFTRPM_BINS] = {375, 750, 1125, 1500, 1875, 2250, 2625, 3000,    // 16 bins for LTFT RPM
-                                            3375, 3750, 4125, 4500, 4875, 5250, 5625, 6000}; // 16 bins for LTFT KPa
+extern const uint16_t LTFTMAPAxis[LTFTMAP_BINS];
 
-const uint16_t LTFTMAPAxis[LTFTMAP_BINS] = {8, 16, 24, 32, 40, 48, 56, 64,
-                                             72, 80, 88, 96, 104, 112, 120, 128};
+extern float LTFT[256];
 
-
-float LTFT[256] = {0};  // Initialize a 16x16 array for the long term fuel trims
+#endif
