@@ -6,6 +6,7 @@ def getEngineTorque(current_rpm, rpm_axis, torque_percent, peakTorque) -> float:
 
     for i in range(len(rpm_axis) - 1):
         if rpm_axis[i] <= clamped_rpm <= rpm_axis[i+1]:
+
             # Linear interpolation
             rpm_range = rpm_axis[i+1] - rpm_axis[i]
             t_range = torque_percent[i+1] - torque_percent[i]
@@ -26,15 +27,14 @@ def PhysicsStep(currentTPS, currentRPM, staticDrag, linearDrag, quadraticDrag, i
     # Calculate current engine torque
     currentMaxTorque = getEngineTorque(currentRPM, rpm_axis, torque_percent,peakTorque)
     combustionTorque = currentMaxTorque * (currentTPS / 100.0)
-    # print(f"Current engineDrag is: %d",engineDrag)
 
-    # net torque
+    # Net torque
     netTorque = combustionTorque - engineDrag
 
     currentAcceleration = netTorque / inertia
     
     velocity += currentAcceleration * physicsTimestep
-# test
+# 
     # Prevent backwards velocity
     if velocity < 0:
         velocity = 0

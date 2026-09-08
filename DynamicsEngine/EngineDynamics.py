@@ -49,7 +49,8 @@ def main():
             time.sleep(timeStep)
             sem.acquire()                   
 
-            # Read the current states
+            # * Read the current states from shared memory
+            
             currentTPS = engineStatus.TPS
             atmosphericPressure = engineStatus.AAP * 1000
             volumetric = engineStatus.VE / 100
@@ -57,26 +58,28 @@ def main():
             butterflyPercentOpen = (currentTPS / 100.0) ** 2
             throttleArea = butterflyPercentOpen * throttleBodySize * dischargeCoeff
 
-            # RPM Physics
+            ######## RPM PHYSICS ########
+
             currentRPM = PhysicsStep(currentTPS, currentRPM, staticDrag + engineLoad, linearDrag,
                                      quadraticDrag, inertia,timeStep,
                                      rpm_axis, torque_percent, peakTorque)
             
             engineStatus.RPM = int(currentRPM)
 
-            # 3. MAP Physics
+            ######## MAP PHYSICS ########
+
             calculated_map = calculateManifoldPressure(
                 engineStatus.MAP * 1000, timeStep, atmosphericPressure, 
                 manifoldVolume, IAT, throttleArea, heatRatioOfAir, 
                 airGasConst, cylinderVolume, currentRPM, volumetric
             )
             
-            # Clamp to atmosphere
+            # Clamp MAP to atmosphere
             engineStatus.MAP = min(int(calculated_map / 1000), int(atmosphericPressure / 1000))
             
             sem.release()
 
-    finally:
+    finally:                # * Cleanly close the SHM and SEM
         del engineStatus
         enginedata.close()
         sem.close()

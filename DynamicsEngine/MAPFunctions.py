@@ -1,70 +1,74 @@
 from math import sqrt
 
-def calculatePR(atmosphericPressure, MAP):  # Calculates the pressure ratio the intake
-    PR = MAP / atmosphericPressure
-    if PR < 0.52:           # Set lower bound of pressure ratio to simulate choked flow
-        PR = 0.52
+########? IMPORTANT DEFINITIONS ?################################
+#?  TBA     = Total area of throttle body butterfly valve       #
+#?  ATM     = Atmospheric pressure in Pa                        #
+#?  CVOL    = Total swept volume of all cylinders in M^3        #
+#?  RPM     = Engine RPM                                        #
+#?  VE      = Volumetric efficiency of engine in % (85% = 0.85) #
+#?  AGC     = Air gas constant                                  #
+#?  HR      = Heat ratio of air (1.4)                           #
+#?  MVOL    = Total volume of manifold                          #
+#?  CMAP    = Current manifold pressure in Pa                   #
+#?###############################################################
 
-    if PR > 1:              # NA motor so pressure ratio can not be above 1
-        PR = 1
+def calculatePR(ATM, MAP):  #* Calculate throttle body pressure ratio
+    PR = MAP / ATM
+    if PR < 0.52:           #* clamp pressure ratio to simulate choked flow
+        PR = 0.52
+    else:
+        if  PR > 1:         #* for NA motor pressure ratio is clamped at 1
+            PR = 1
+
     return PR
 
-def downStreamMassFlow(cylinderVolume, engineRPM, volumetric,
-                       MAP, airGasConst, IAT):           # Calculate the mass flow downstream of throttle body
+def downStreamMassFlow(CVOL, RPM, VE, MAP, AGC, IAT):
 
-    # Using the speed density equasion calculate the flow coming out of the throttle body
-    massOut =  (cylinderVolume * engineRPM * volumetric * MAP) / (2 * airGasConst * IAT * 60)  # Flow in Kg/s
+    # * Calculate air flowing out of the throttle body
+    massOut =  (CVOL * RPM * VE * MAP) / (2 * AGC * IAT * 60)  # Flow in Kg/s
     return massOut
 
-def upStreamMassFlow(throttleArea, atmosphericPressure, heatRatioOfAir, IAT, PR, airGasConst):
+def upStreamMassFlow(TBA, ATM, HR, IAT, PR, AGC):
 
-    # Using compressable flow equasions calculate the air flowing into the TB
-    leadCoeff   = throttleArea * (atmosphericPressure / sqrt(airGasConst * IAT))
-    gammaMult   = (2 * heatRatioOfAir) / (heatRatioOfAir - 1)
-    pressRatioTerm  = (PR ** (2 / heatRatioOfAir)) - (PR ** ((heatRatioOfAir + 1) / heatRatioOfAir))
+    # * Calculate air flowing into the throttle body
+    leadCoeff       = TBA * (ATM / sqrt(AGC * IAT))
+    gammaMult       = (2 * HR) / (HR - 1)
+    pressRatioTerm  = (PR ** (2 / HR)) - (PR ** ((HR + 1) / HR))
 
-    massIn      = leadCoeff * sqrt(gammaMult * pressRatioTerm)
+    massIn          = leadCoeff * sqrt(gammaMult * pressRatioTerm)
     return massIn
 
-def calculateRateChange(manifoldVolume, airGasConst, IAT):
-    return (airGasConst * IAT) / manifoldVolume
+#* Calculate the rate change of pressure in the throttle body
+def calculateRateChange(MVOL, AGC, IAT):
+    return (AGC * IAT) / MVOL
 
-def getDpDt(currentMAP,atmosphericPressure, manifoldVolume,
-            IAT, throttleArea, heatRatioOfAir, airGasConst,
-            cylinderVolume,engineRPM, volumetric):
+#* define the first order differential dp/dt
+def get_dp_dt(CMAP,ATM, MVOL, IAT, TBA, HR, AGC, CVOL,RPM, VE):
     
-    PR      = calculatePR(atmosphericPressure, currentMAP)
+    PR      = calculatePR(ATM, CMAP)
 
-    gain    = calculateRateChange(manifoldVolume, airGasConst, IAT)
+    gain    = calculateRateChange(MVOL, AGC, IAT)
 
-    massIn  = upStreamMassFlow(throttleArea, atmosphericPressure, 
-                               heatRatioOfAir, IAT, PR, airGasConst)
+    massIn  = upStreamMassFlow(TBA, ATM, HR, IAT, PR, AGC)
     
-    massOut = downStreamMassFlow(cylinderVolume, engineRPM,
-                                 volumetric, currentMAP, airGasConst, IAT)
+    massOut = downStreamMassFlow(CVOL, RPM, VE, CMAP, AGC, IAT)
 
     dPdT = gain * (massIn - massOut)
     return dPdT
 
-def calculateManifoldPressure(currentMAP, dt, atmosphericPressure, manifoldVolume,
-                              IAT, throttleArea, heatRatioOfAir, airGasConst, cylinderVolume,
-                              engineRPM,volumetric):
+def calculateManifoldPressure(CMAP, dt, ATM, MVOL, IAT, TBA, HR, AGC, CVOL, RPM,VE):
 
-    k1 = getDpDt(currentMAP, atmosphericPressure, manifoldVolume, IAT,
-                 throttleArea, heatRatioOfAir, airGasConst, cylinderVolume,
-                 engineRPM, volumetric)
-    
-    k2 = getDpDt(currentMAP + 0.5 * dt * k1, atmosphericPressure, manifoldVolume, IAT,
-                 throttleArea, heatRatioOfAir, airGasConst, cylinderVolume,
-                 engineRPM, volumetric)
-    
-    k3 = getDpDt(currentMAP + 0.5 * dt * k2, atmosphericPressure, manifoldVolume, IAT,
-                 throttleArea, heatRatioOfAir, airGasConst, cylinderVolume,
-                 engineRPM, volumetric)
-    
-    k4 = getDpDt(currentMAP + dt * k3, atmosphericPressure, manifoldVolume, IAT,
-                 throttleArea, heatRatioOfAir, airGasConst, cylinderVolume,
-                 engineRPM, volumetric)
+    #* RK4 algorithm for solving the differential
 
-    futureMAP = currentMAP + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+    k1 = get_dp_dt(CMAP, ATM, MVOL, IAT, TBA, HR, AGC, CVOL, RPM, VE)
+    
+    k2 = get_dp_dt(CMAP + 0.5 * dt * k1, ATM, MVOL, IAT, TBA, HR, AGC, CVOL, RPM, VE)
+    
+    k3 = get_dp_dt(CMAP + 0.5 * dt * k2, ATM, MVOL, IAT, TBA, HR, AGC, CVOL, RPM, VE)
+    
+    k4 = get_dp_dt(CMAP + dt * k3, ATM, MVOL, IAT, TBA, HR, AGC, CVOL, RPM, VE)
+
+    #* Calculate MAP at P_n+1
+    futureMAP = CMAP + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
     return futureMAP

@@ -184,7 +184,6 @@ int main(){
     struct Engine *sharedData = (struct Engine *)mappedPtr;                       // define object pointer with type of engine struct and cast onto shared memory
     *sharedData = engineInstance;                                           // update shared memory with real ECU instance
 
-    int lastTPS = 0;    
     while(1){
         sem_wait(engineSem);        // Lock SEM for data update
 
