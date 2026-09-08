@@ -3,6 +3,7 @@ This is the C based fueling-only ECU developed by Logan Ross <3
 */
 
 #include <time.h>
+#include "tunables.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -15,34 +16,8 @@ This is the C based fueling-only ECU developed by Logan Ross <3
 #include "tables.h"
 #include "semaphore.h"
 
-#define DEBUG
 
-#define loopSize 100   // Number of loops in frame at 10ms per loop - frame is 1s
-
-// Tuning values
-#define TPSCheck 30                 // Rate at which the scheduler runs the TPS check - 300ms
-#define STFTInterval 5             //50ms
-#define LTFTInterval 5
-#define TPSDeadband 2               // Band at which toe-in enrichment does not occur
-#define toeInEnrichmentDecay 99     // % of enrichment to keep per itteration
-
-#define onBootAFR 12.5              // AFR Value to initialize with
-#define toeEnrichment 0.20          // Toe-in enrichment multiplier
-#define coldStartEnrichment 1.3     // Engine cold start enrichment
-#define crankingEnrichment 1.2      // Engine cranking enrichment
-#define initFuelTrim 1.0            // Manual fuel trim multiplier
-
-#define MAXSTFT 20    // Maximum STFT correction
-#define MINSTFT -20   // Minimum STFT correction
-#define STFTCorrectionDamper 2
-
-#define LTFTSCALAR 0.1  // rate at which LTFT changes (%)
-#define STFTDEADBAND 3  // % in which LTFT does not change based on STFT
-
-#define CRANKING_RPM 250    // RPM below which we consider the motor to be cranking
-
-const word16 DISPLACEMENT = 4;                            // Engine displacement in L
-const word16 DISPLACEMENT_PER_REV = DISPLACEMENT / 2;     // This will be pre-calculated and stored in ROM
+const word16 DISPLACEMENT_PER_REV = engineDisplacement / 2;     // This will be pre-calculated and stored in ROM
 
 //  Utility functions
 word16 KtoFConversion(int F){           // This is used to convert F for the user to the internal representation in Kelvin.
@@ -181,7 +156,7 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     //printf("REALAFR: %f\n",eng->REALAFR);
     //printf("AFRDELTA: %d\n",AFRDELTA);
 
-    float correction = AFRDELTA / STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
+    float correction = AFRDELTA * STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
     eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT
 
     if(eng->STFTCorrection >= MAXSTFT){                     // Make sure STFT is not maxed out
@@ -197,8 +172,6 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
     if(AFRDELTA <= 0 && eng->STFTCorrection > 0){
     eng->STFTCorrection = 0;
     }
-
-    //printf("STFTCORR: %d\n\n",eng->STFTCorrection);
 }
 
 void calculateLTFT(struct Engine *eng){
@@ -274,9 +247,9 @@ void initValues(struct Engine *eng, struct ECUSchedule *sched){
     sched->ECULoopSize = loopSize;                      // Set the total loop size before the logic repeats
     sched->ECUStep = 0;
     sched->crankCheckInterval = 5;                      // Interval at which the ECU checks for cranking
-    sched->TPSCheckInterval = TPSCheck;
+    sched->TPSCheckInterval = TPSCheck / 10;
     sched->loopIntervalTimeBase = get_time_in_ms();
-    sched->STFTCheckInterval = STFTInterval;
+    sched->STFTCheckInterval = STFTInterval / 10;
 
     sched->STFTCheckLock = false;                       // Init the scheduler locks
     sched->CrankCheckLock = false;
@@ -331,7 +304,7 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
 
     long long currentTime = get_time_in_ms();                // Fetch the current time
 
-    if(currentTime - sched->loopIntervalTimeBase >= 10){          // Check if 10MS has passed
+    if(currentTime - sched->loopIntervalTimeBase >= loopTime){          // Check if 10MS has passed
         sched->ECUStep++;
         //printf("Increased\n");
         sched->TPSCheckLock = false;
