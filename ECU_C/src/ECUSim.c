@@ -76,7 +76,10 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     */
 
     if (sched->ECUStep % sched->TPSCheckInterval == 0 && sched->TPSCheckLock == false){             // Calculate Toe in Enrichment on schedule
-        //calculateToeEnrichment(eng);   // ! Disabled until I can figure out whats going on
+        if (eng->toeEnrichmentMultiplier > 1){
+            eng->toeEnrichmentMultiplier = eng->toeEnrichmentMultiplier * (toeInEnrichmentDecay / 100.0);
+        }
+        calculateToeEnrichment(eng);   // ! Disabled until I can figure out whats going on
         sched->TPSCheckLock = true;
     }
 
@@ -132,7 +135,8 @@ int main(){
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
-    sigaction(SIGINT, &sa, NULL);
+
+    sigaction(SIGINT,  &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGQUIT, &sa, NULL);
     atexit(cleanup_ipc);

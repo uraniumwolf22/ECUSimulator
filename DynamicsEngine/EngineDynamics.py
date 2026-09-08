@@ -25,15 +25,15 @@ cylinderVolume  = cylinderVolume / 1000     # Convert L to M^3
 inertia         = 0.5 * flywheelMass * (flywheelRadius ** 2) # moment of inertia
 velocity        = 0 # Starting velocity
 
-rpm_axis = [500, 800, 1100, 1400,
-            1700, 2000, 2300, 2600,
-            2900, 3200, 3500, 3800,
-            4100, 4400, 4700, 5000]
+rpm_axis        = [500, 800, 1100, 1400,
+                   1700, 2000, 2300, 2600,
+                   2900, 3200, 3500, 3800,
+                   4100, 4400, 4700, 5000]
 
-torque_percent = [75, 80, 85, 88,
-                  92, 95, 97, 99,
-                  100, 100, 97, 92,
-                  86, 78, 69, 60]
+torque_percent  = [75, 80, 85, 88,
+                   92, 95, 97, 99,
+                   100, 100, 97, 92,
+                   86, 78, 69, 60]
 
 def main():
     time.sleep(0.1)  # Delay for process's to init
@@ -50,7 +50,7 @@ def main():
             sem.acquire()                   
 
             # * Read the current states from shared memory
-            
+
             currentTPS = engineStatus.TPS
             atmosphericPressure = engineStatus.AAP * 1000
             volumetric = engineStatus.VE / 100

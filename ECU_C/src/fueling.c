@@ -15,9 +15,10 @@ void calculateToeEnrichment(struct Engine *eng){                // Calculated th
   if (TEM < 1){         // Dont let TEM go negative
     TEM = 1;
   }
-  eng->toeEnrichmentMultiplier = TEM;   // Set the engine toe enrichment
-
-  eng->lastTPSValue = eng->TPS;         // Set the current TPS to the last, for the next loop
+  if (eng->toeEnrichmentMultiplier < TEM){
+    eng->toeEnrichmentMultiplier = TEM;     // Set the engine toe enrichment
+  }
+  eng->lastTPSValue = eng->TPS;             // Set the current TPS to the last, for the next loop
 
 }
 

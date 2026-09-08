@@ -3,7 +3,7 @@
 
 //////// SCHEDULER ////////
 
-#define TPSCheck                300    // 300ms
+#define TPSCheck                100    // 300ms
 #define STFTInterval            50     // 50ms
 #define LTFTInterval            50     // 50ms
 #define loopSize                100    // Number of loops in frame (defines fram size)
@@ -12,8 +12,8 @@
 //////// TOE ENRICHMENT ////////
 
 #define TPSDeadband             2       // Toe in enrichment deadband
-#define toeInEnrichmentDecay    99      // % of enrichment to keep per itteration
-#define toeEnrichment           0.20    // Toe-in enrichment multiplier
+#define toeInEnrichmentDecay    90      // % of enrichment to keep per itteration
+#define toeEnrichment           0.1     // Toe-in enrichment multiplier
 
 //////// FUEL SCALARS ////////
 
