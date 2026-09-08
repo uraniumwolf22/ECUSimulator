@@ -1,5 +1,13 @@
-/*
+/* 
 This is the C based fueling-only ECU developed by Logan Ross <3
+
+   ___     ___    _   _    ___     ___   __  __  
+  | __|   / __|  | | | |  / __|   |_ _| |  \/  | 
+  | _|   | (__   | |_| |  \__ \    | |  | |\/| | 
+  |___|   \___|   \___/   |___/   |___| |_|__|_| 
+_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|_|"""""| 
+"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-' 
+                                                       
 */
 
 #include "includes.h"
@@ -8,76 +16,100 @@ This is the C based fueling-only ECU developed by Logan Ross <3
 #include "utils.h"
 #include "air.h"
 
-const word16 DISPLACEMENT_PER_REV = engineDisplacement / 2;     // This will be pre-calculated and stored in ROM
-
 void initValues(struct Engine *eng, struct ECUSchedule *sched){
 
-    eng->AFR_TARGET = onBootAFR;                        // Define AFR Target on boot
-    eng->coldCoolant = 100;                             // Tempurature where under is considered cold starting
-    eng->displacementPerRev = DISPLACEMENT_PER_REV;     // Set engine displacement
-    eng->fuelTrim = initFuelTrim;
-    eng->IAT = KtoFConversion(70);                             // Set intake air tempurature to 70F on boot
-    eng->toeEnrichmentMultiplier = 1;
-    eng->REALAFR = eng->AFR_TARGET;
-    eng->AAP = 101;
+    eng->AFR_TARGET                 = onBootAFR;                    // * AFR target on startup
+    eng->coldCoolant                = 100;                          // * Tempurature under which is considered cold start
+    eng->displacementPerRev         = engineDisplacement / 2;       // * Engine displacement per revolution
+    eng->fuelTrim                   = initFuelTrim;
+    eng->IAT                        = KtoFConversion(68);           // * Set intake air temp to room tempurature
+    eng->toeEnrichmentMultiplier    = 1;
+    eng->REALAFR                    = eng->AFR_TARGET;              // * Set the REALAFR to its initial value
+    eng->AAP                        = 101;
 
-    sched->ECULoopSize = loopSize;                      // Set the total loop size before the logic repeats
-    sched->ECUStep = 0;
-    sched->crankCheckInterval = 5;                      // Interval at which the ECU checks for cranking
-    sched->TPSCheckInterval = TPSCheck / 10;
-    sched->loopIntervalTimeBase = get_time_in_ms();
-    sched->STFTCheckInterval = STFTInterval / 10;
+    sched->ECULoopSize              = loopSize;                     // * Set the total scheduler loop size
+    sched->ECUStep                  = 0;                            // * What step the ECU is on in the loop
+    sched->crankCheckInterval       = 5;                            // * Cranking scheduler interval
+    sched->TPSCheckInterval         = TPSCheck / 10;                // * TPS Check interval
+    sched->loopIntervalTimeBase     = get_time_in_ms();             // * Set the base time the the current system time
+    sched->STFTCheckInterval        = STFTInterval / 10;            // * STFT Scheduler interval
 
-    sched->STFTCheckLock = false;                       // Init the scheduler locks
-    sched->CrankCheckLock = false;
-    sched->TPSCheckLock = false;
+    sched->STFTCheckLock            = false;                        // * STFT Scheduler lock
+    sched->CrankCheckLock           = false;                        // * Cranking scheduler lock
+    sched->TPSCheckLock             = false;                        // * TPS Check scheduler lock
 
 }
 
 void performStep(struct Engine *eng, struct ECUSchedule *sched){
-    
+    /*
+    ####################################
+    ######## CHECK CRANKING RPM ########
+    ####################################
+    */
 
-    if (sched->ECUStep % sched->crankCheckInterval == 0 && sched->CrankCheckLock == false){           // Check engine cranking status on interval
+    if (sched->ECUStep % sched->crankCheckInterval == 0 
+        && sched->CrankCheckLock == false){
+
         if (eng->RPM < CRANKING_RPM){
             eng->EngineCranking = true;
-        } else {eng->EngineCranking = false;}
+        }else{
+            eng->EngineCranking = false;
+        }
+
         sched->CrankCheckLock = true;
     }
 
-    if (eng->COOLANT < eng->coldCoolant){               // On init determine if engine is cold. If so, set the flag.
+    /*
+    ####################################
+    ######## CHECK COOLANT TEMP ########
+    ####################################
+    */
+
+    if (eng->COOLANT < eng->coldCoolant){
         eng->Coldstart = true;
     }
+    
+    /*
+    ######################################
+    ######## CHECK TOE ENRICHMENT ########
+    ######################################
+    */
 
     if (sched->ECUStep % sched->TPSCheckInterval == 0 && sched->TPSCheckLock == false){             // Calculate Toe in Enrichment on schedule
-        //calculateToeEnrichment(eng);   //Disabled until I can figure out whats going on
+        //calculateToeEnrichment(eng);   // ! Disabled until I can figure out whats going on
         sched->TPSCheckLock = true;
     }
 
-    calculateVE(eng);                   // Update volumetric efficiency
+    calculateVE(eng);                   // * Update volumetric efficiency
 
-    calculateAFR(eng);                  // Calculate VE
+    calculateAFR(eng);                  // * Calculate air to fuel ratio
 
-    calculateFuelLoad(eng);             // Calculate the base fuel load
+    calculateFuelLoad(eng);             // * Calculate the theoretical fuel load
 
-    if (sched->ECUStep % sched->STFTCheckInterval == 0 && sched->STFTCheckLock == false){
-        //printf("STFT TRIGGERED\n");
-        calculateSTFT(eng);
+    /*
+    ##################################
+    ######## RECALCULATE STFT ########
+    ##################################
+    */
+
+    if (sched->ECUStep % sched->STFTCheckInterval == 0 && 
+        sched->STFTCheckLock == false){
+
         calculateSTFT(eng);
 
         sched->STFTCheckLock = true;
     }
 
-    // CHANGE ME TO OWN SCHED
-    // if (sched->ECUStep % sched->STFTCheckInterval == 0 && sched->STFTCheckLock == false){
-    //     //printf("STFT TRIGGERED\n");
-    //     calculateSTFT(eng);
-    //     sched->STFTCheckLock = true;
-    // }
-
     calculateLTFT(eng);
 
     correctFuelLoad(eng);               // Adjust fuel load for transient conditions
 
+
+    /*
+    ##################################
+    ######## UPDATE SCHEDULER ########
+    ##################################
+    */
 
     long long currentTime = get_time_in_ms();                // Fetch the current time
 
@@ -88,53 +120,11 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
         sched->CrankCheckLock = false;
         sched->STFTCheckLock = false;
         sched->loopIntervalTimeBase = currentTime;
-        
     }
-
-    //printf("Current Looptime: %d\n",currentTime - sched->timeLastChecked);
 
     if(sched->ECUStep >= sched->ECULoopSize){               // Check if we are at the end of our loop
         sched->ECUStep = 0;                                 // Reset loop
     }
-    
-
-}
-
-struct Engine engineInstance = {0};         // Instantiate instance of engine values
-struct ECUSchedule schedule;                // Instantiate the ECU Schedule
-
-const char *name = "engineStateMemory_local";    // Define the location of the shared memory for engine struct
-const char *engineSemName = "/engineSemaphore_local"; // Define location for engine shared memory semaphore
-
-const int SIZE = sizeof(engineInstance);
-static sem_t *engineSem = NULL;
-static int sharedEngineMem = -1;
-static void *mappedPtr = NULL;
-
-static void cleanup_ipc(void){
-    if (mappedPtr != NULL && mappedPtr != MAP_FAILED) {
-        munmap(mappedPtr, SIZE);
-        mappedPtr = NULL;
-    }
-
-    if (sharedEngineMem != -1) {
-        close(sharedEngineMem);
-        sharedEngineMem = -1;
-    }
-
-    if (engineSem != NULL) {
-        sem_close(engineSem);
-        engineSem = NULL;
-    }
-
-    sem_unlink(engineSemName);
-    shm_unlink(name);
-}
-
-static void handle_signal(int signalNumber){
-    (void)signalNumber;
-    cleanup_ipc();
-    _exit(0);
 }
 
 int main(){
@@ -149,7 +139,7 @@ int main(){
 
     initValues(&engineInstance, &schedule);                                 // Initialize the ECU Values
 
-    sem_unlink(engineSemName);
+    sem_unlink(engineSemName);      // Remove any previous SEM or SHM objects
     shm_unlink(name);
 
     engineSem = sem_open(engineSemName, O_CREAT, 0666, 1);                    // Create the semaphore
@@ -204,13 +194,5 @@ int main(){
         *sharedData = engineInstance;              // Update shared data
 
         sem_post(engineSem);        // Unlock SEM for other programs
-	    //debug(&engineInstance);
     }
-
-    // while(1){
-    //     for(schedule.ECUStep = 0; schedule.ECUStep < schedule.ECULoopSize; schedule.ECUStep++){ // Iterate through the ECU loop
-    //         performStep(&engineInstance, &schedule);                                            // take a single step of the loop
-    //     }
-
-    //}
 }
