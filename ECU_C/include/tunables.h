@@ -25,12 +25,15 @@
 
 #define MAXSTFT                 20      // Maximum STFT correction
 #define MINSTFT                 -20     // Minimum STFT correction
+
 #define STFTCorrectionDamper    0.5     // How much of AFR delta is intigrated into STFT
 
 //////// LTFT TUNABLES ////////
 
 #define LTFTSCALAR              0.1     // rate at which LTFT changes (%)
 #define STFTDEADBAND            3       // % in which LTFT does not change based on STFT
+#define MAXLTFT                 20      // Maximum STFT correction
+#define MINLTFT                 -20     // Minimum STFT correction
 
 //////// ENGINE PROPERTIES ////////
 

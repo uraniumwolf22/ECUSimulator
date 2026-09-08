@@ -99,12 +99,11 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
         sched->STFTCheckLock == false){
 
         calculateSTFT(eng);
+        calculateLTFT(eng);
 
         sched->STFTCheckLock = true;
     }
-
-    calculateLTFT(eng);
-
+    
     correctFuelLoad(eng);               // Adjust fuel load for transient conditions
 
 

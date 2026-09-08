@@ -76,12 +76,10 @@ void calculateLTFT(struct Engine *eng){
 
     //printf("RPMWeight: %f\nMAPWeight: %f\n");
 
-    float topLeftShare = (1 - RPMWeight) * MAPWeight;                       // Calculate % shares for each cell
-    float topRightShare = RPMWeight * MAPWeight;
-    float bottomLeftShare = (1 - RPMWeight) * (1 - MAPWeight);
-    float bottomRightShare = RPMWeight * (1 - MAPWeight);
-
-    //printf("\e[H\nTOPLEFT %f TOPRIGHT: %f\n BOTLEFT %f BOTRIGHT %f\n",topLeftShare,topRightShare,bottomLeftShare,bottomRightShare);
+    float topLeftShare     = (1.0 - RPMWeight) * (1.0 - MAPWeight); 
+    float topRightShare    = RPMWeight         * (1.0 - MAPWeight); 
+    float bottomLeftShare  = (1.0 - RPMWeight) * MAPWeight;         
+    float bottomRightShare = RPMWeight         * MAPWeight;
 
     // Calculate cell indexes
     int topLeftCell_idx = (lowerMAPBin * LTFTRPM_BINS) + lowerRPMBin;           // Index of top left cell
@@ -106,6 +104,18 @@ void calculateLTFT(struct Engine *eng){
         LTFT[bottomRightCell_idx] += (stepDirection * LTFTSCALAR * bottomRightShare);
         LTFT[topLeftCell_idx]     += (stepDirection * LTFTSCALAR * topLeftShare);
         LTFT[topRightCell_idx]    += (stepDirection * LTFTSCALAR * topRightShare);
+
+        if (LTFT[bottomLeftCell_idx] > MAXLTFT) LTFT[bottomLeftCell_idx] = MAXLTFT;
+        if (LTFT[bottomLeftCell_idx] < MINLTFT) LTFT[bottomLeftCell_idx] = MINLTFT;
+        
+        if (LTFT[bottomRightCell_idx] > MAXLTFT) LTFT[bottomRightCell_idx] = MAXLTFT;
+        if (LTFT[bottomRightCell_idx] < MINLTFT) LTFT[bottomRightCell_idx] = MINLTFT;
+        
+        if (LTFT[topLeftCell_idx] > MAXLTFT) LTFT[topLeftCell_idx] = MAXLTFT;
+        if (LTFT[topLeftCell_idx] < MINLTFT) LTFT[topLeftCell_idx] = MINLTFT;
+        
+        if (LTFT[topRightCell_idx] > MAXLTFT) LTFT[topRightCell_idx] = MAXLTFT;
+        if (LTFT[topRightCell_idx] < MINLTFT) LTFT[topRightCell_idx] = MINLTFT;
     }
 
     eng->LTFTCorrection = (LTFT[bottomLeftCell_idx]  * bottomLeftShare)  +              // Interpolate the LTFT table to get fuel correction multiplier
@@ -135,6 +145,6 @@ void correctFuelLoad(struct Engine *eng){
     eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->STFTCorrection / 100));    // Adjust for STFT
 
     // LTFT probably should not update during cranking or cold start
-    //eng->fuelLoad = eng->fuelLoad * eng->LTFTCorrection;    // Adjust for LTFT
+    eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->LTFTCorrection / 100));
 
 }
