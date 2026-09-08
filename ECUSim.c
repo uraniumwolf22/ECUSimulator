@@ -4,6 +4,7 @@ This is the C based fueling-only ECU developed by Logan Ross <3
 
 #include <time.h>
 #include "tunables.h"
+#include "engineStruct.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
