@@ -2,6 +2,25 @@
 #include "tunables.h"
 #include "utils.h"
 #include "tables.h"
+
+void calculateToeEnrichment(struct Engine *eng){                // Calculated the toe in enrichment based on the speed of the TPS sensor
+    float TEM = 1;                                              // Toe enrichment multiplier
+  int16_t deltaTPS = eng->TPS - eng->lastTPSValue;              // Calculate the delta of the TPS sensor over time
+  //printf("TPS_RATE: %d\n",deltaTPS);
+  if(deltaTPS >= TPSDeadband){                                   // Make sure the delta is not outside of the deadband
+    TEM = deltaTPS * toeEnrichment;                              // Scale the toe enrichment factor by the TPS delta
+    //printf("TIE EVENT REGISTERED WITH DELTA OF %d\n",deltaTPS);
+   }
+
+  if (TEM < 1){         // Dont let TEM go negative
+    TEM = 1;
+  }
+  eng->toeEnrichmentMultiplier = TEM;   // Set the engine toe enrichment
+
+  eng->lastTPSValue = eng->TPS;         // Set the current TPS to the last, for the next loop
+
+}
+
 void calculateFuelLoad(struct Engine *eng){         // Calculate engine theoretical fuel loading
 
     word32 flowPerMinTh = eng->RPM * eng->displacementPerRev;                   // Calculate the theoretical air flow per minute

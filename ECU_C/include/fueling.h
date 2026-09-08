@@ -2,6 +2,8 @@
 #define FUELING_H
 #include "includes.h"
 
+void calculateToeEnrichment(struct Engine *eng);
+
 void calculateFuelLoad  (struct Engine *eng);
 
 void calculateSTFT      (struct Engine *eng);

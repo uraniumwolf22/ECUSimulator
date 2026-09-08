@@ -1,3 +1,3 @@
 ./compile.sh
 clear
-./ECU & ./ecu-gui-aarch & python3 EngineDynamics.py
+./ECU_C/ECU & ./ecu-gui-aarch & python3 ./DynamicsEngine/EngineDynamics.py
