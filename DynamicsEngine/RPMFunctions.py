@@ -1,5 +1,6 @@
 from math import pi
-
+import random
+from EngineTunables import tqVariation
 def getEngineTorque(current_rpm, rpm_axis, torque_percent, peakTorque) -> float:
     # Clamp RPM
     clamped_rpm = max(rpm_axis[0], min(rpm_axis[-1], current_rpm))
@@ -23,6 +24,8 @@ def PhysicsStep(currentTPS, currentRPM, staticDrag, linearDrag, quadraticDrag, i
     velocity = currentRPM * (2 * pi) / 60.0
     # current engine drag
     engineDrag = staticDrag + (linearDrag * currentRPM) + (quadraticDrag * (currentRPM ** 2))
+
+    engineDrag = engineDrag + random.uniform(-(peakTorque * tqVariation), (peakTorque * tqVariation))
 
     # Calculate current engine torque
     currentMaxTorque = getEngineTorque(currentRPM, rpm_axis, torque_percent,peakTorque)

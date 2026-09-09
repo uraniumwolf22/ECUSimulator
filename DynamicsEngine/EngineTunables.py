@@ -20,4 +20,6 @@ quadraticDrag       = 0.000005      # Quadratic drag in nm
 engineLoad          = 0             # Static engine load in nm
 
 ######## PHYSICS ENGINE ########
-timeStep = 0.01
+timeStep            = 0.01
+
+tqVariation         = 0.20          # % of peak torque that is randomly applied in both directions to drag

@@ -129,9 +129,11 @@ def main():
                     idlectl = idlectl + 1
                     engineStatus.TPS = int(idlectl / 10)
 
-                if engineStatus.RPM > idleRPM and idlectl > -100:
+                if engineStatus.RPM > idleRPM:
+
                     idlectl = idlectl - 1
                     engineStatus.TPS = int(idlectl / 10)
+                    
             
 
             
