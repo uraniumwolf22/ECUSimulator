@@ -3,7 +3,7 @@
 const uint16_t mapAxis[MAP_BINS] = {15, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 
 // X axis
-const uint16_t rpmAxis[RPM_BINS] = {600, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000};
+const uint16_t rpmAxis[RPM_BINS] = {500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000};
 
 // VE Table
 const uint8_t VETable[MAP_BINS * RPM_BINS] = {
