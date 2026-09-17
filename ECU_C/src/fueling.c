@@ -36,8 +36,6 @@ void calculateFuelLoad(struct Engine *eng){         // Calculate engine theoreti
 
 void calculateSTFT(struct Engine *eng){                     // Calculated STFT correction in %
     float AFRDELTA = (eng->REALAFR) - (eng->AFR_TARGET);
-    //printf("REALAFR: %f\n",eng->REALAFR);
-    //printf("AFRDELTA: %d\n",AFRDELTA);
 
     float correction = AFRDELTA * STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
     eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT

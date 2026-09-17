@@ -124,8 +124,8 @@ def main():
             last_tps = currentTPS
 
             ######## IDLE CONTROL LOOP ########
-            if engineStatus.RPM < idleRPM + 100:
-                if engineStatus.RPM < idleRPM and idlectl < 100:
+            if engineStatus.RPM < idleRPM + 2000:
+                if engineStatus.RPM < idleRPM and idlectl < 900:
                     idlectl = idlectl + 1
                     engineStatus.TPS = int(idlectl / 10)
 

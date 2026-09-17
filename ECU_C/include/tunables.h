@@ -3,6 +3,7 @@
 
 //////// SCHEDULER ////////
 
+#define crankCheck              200    // 200ms
 #define TPSCheck                100    // 300ms
 #define STFTInterval            50     // 50ms
 #define LTFTInterval            50     // 50ms
@@ -42,5 +43,5 @@
 //////// MISC ////////
 #define onBootAFR               12.5    // AFR Value to initialize with
 #define CRANKING_RPM            250     // RPM below which we consider the motor to be cranking
-
+#define coldStartTemp           100     // Tempurature at which under is considered a cold start
 #endif

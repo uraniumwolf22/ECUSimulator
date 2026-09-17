@@ -8,9 +8,9 @@ throttleBodySize    = 0.00314       # Size of throttle body in M^2
 manifoldVolume      = 2.6           # manifold volume in L
 cylinderVolume      = 4             # Engine volume in L
 peakTorque          = 310.0         # Peak torque in nm
-idleRPM             = 500
+idleRPM             = 2600
 ######## FLYWHEEL ########
-flywheelMass        = 18.0          # mass in Kg
+flywheelMass        = 25.0          # mass in Kg (Default 18)
 flywheelRadius      = 0.18          # radius in m
 
 ######## ENGINE DRAG ########
@@ -22,4 +22,4 @@ engineLoad          = 0             # Static engine load in nm
 ######## PHYSICS ENGINE ########
 timeStep            = 0.01
 
-tqVariation         = 0.20          # % of peak torque that is randomly applied in both directions to drag
+tqVariation         = 0.30          # % of peak torque that is randomly applied in both directions to drag

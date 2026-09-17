@@ -19,9 +19,9 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 void initValues(struct Engine *eng, struct ECUSchedule *sched){
 
     eng->AFR_TARGET                 = onBootAFR;                    // * AFR target on startup
-    eng->coldCoolant                = 100;                          // * Tempurature under which is considered cold start
+    eng->coldCoolant                = coldStartTemp;                // * Tempurature under which is considered cold start
     eng->displacementPerRev         = engineDisplacement / 2;       // * Engine displacement per revolution
-    eng->fuelTrim                   = initFuelTrim;
+    eng->fuelTrim                   = initFuelTrim;                 // * Initial fuel trim
     eng->IAT                        = KtoFConversion(68);           // * Set intake air temp to room tempurature
     eng->toeEnrichmentMultiplier    = 1;
     eng->REALAFR                    = eng->AFR_TARGET;              // * Set the REALAFR to its initial value
@@ -29,8 +29,9 @@ void initValues(struct Engine *eng, struct ECUSchedule *sched){
 
     sched->ECULoopSize              = loopSize;                     // * Set the total scheduler loop size
     sched->ECUStep                  = 0;                            // * What step the ECU is on in the loop
-    sched->crankCheckInterval       = 5;                            // * Cranking scheduler interval
-    sched->TPSCheckInterval         = TPSCheck / 10;                // * TPS Check interval
+    sched->crankCheckInterval       = crankCheck / 10;                            // * Cranking scheduler interval
+    sched->TPSCheckInterval         = TPSCheck   / 10;              // * TPS Check interval
+
     sched->loopIntervalTimeBase     = get_time_in_ms();             // * Set the base time the the current system time
     sched->STFTCheckInterval        = STFTInterval / 10;            // * STFT Scheduler interval
 
@@ -47,15 +48,14 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     ####################################
     */
 
-    if (sched->ECUStep % sched->crankCheckInterval == 0 
-        && sched->CrankCheckLock == false){
+    if (sched->ECUStep % sched->crankCheckInterval == 0 // Check if the check interval has passed
+        && sched->CrankCheckLock == false){             // Check if lock is set (has ran this loop)
 
         if (eng->RPM < CRANKING_RPM){
             eng->EngineCranking = true;
         }else{
             eng->EngineCranking = false;
         }
-
         sched->CrankCheckLock = true;
     }
 
@@ -79,7 +79,8 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
         if (eng->toeEnrichmentMultiplier > 1){
             eng->toeEnrichmentMultiplier = eng->toeEnrichmentMultiplier * (toeInEnrichmentDecay / 100.0);
         }
-        calculateToeEnrichment(eng);   // ! Disabled until I can figure out whats going on
+        calculateToeEnrichment(eng);
+
         sched->TPSCheckLock = true;
     }
 
@@ -90,9 +91,9 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     calculateFuelLoad(eng);             // * Calculate the theoretical fuel load
 
     /*
-    ##################################
-    ######## RECALCULATE STFT ########
-    ##################################
+    ###########################################
+    ######## RECALCULATE STFT AND LTFT ########
+    ###########################################
     */
 
     if (sched->ECUStep % sched->STFTCheckInterval == 0 && 
@@ -103,8 +104,13 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
 
         sched->STFTCheckLock = true;
     }
-    
-    correctFuelLoad(eng);               // Adjust fuel load for transient conditions
+    /*
+    ###################################
+    ######## CORRECT FUEL LOAD ########
+    ###################################
+    */
+
+    correctFuelLoad(eng);
 
 
     /*
@@ -113,23 +119,33 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
     ##################################
     */
 
-    long long currentTime = get_time_in_ms();                // Fetch the current time
+    long long currentTime = get_time_in_ms();                           // Fetch the current time
 
-    if(currentTime - sched->loopIntervalTimeBase >= loopTime){          // Check if 10MS has passed
+    if(currentTime - sched->loopIntervalTimeBase >= loopTime){          // Check if single loop interation time has passed
+
         sched->ECUStep++;
-        //printf("Increased\n");
-        sched->TPSCheckLock = false;
-        sched->CrankCheckLock = false;
-        sched->STFTCheckLock = false;
+
+        sched->TPSCheckLock     = false;    // Turn off locks
+        sched->CrankCheckLock   = false;
+        sched->STFTCheckLock    = false;
+
         sched->loopIntervalTimeBase = currentTime;
+
     }
 
-    if(sched->ECUStep >= sched->ECULoopSize){               // Check if we are at the end of our loop
-        sched->ECUStep = 0;                                 // Reset loop
+    if(sched->ECUStep >= sched->ECULoopSize){                           // Check if we are at the end of our loop
+        sched->ECUStep = 0;                                             // Reset loop
     }
 }
 
 int main(){
+
+    /*
+    ###################################################
+    ######## START SHARED MEMORY AND SEMOPHORE ########
+    ###################################################
+    */
+
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_signal;
@@ -140,19 +156,17 @@ int main(){
     sigaction(SIGQUIT, &sa, NULL);
     atexit(cleanup_ipc);
 
-    initValues(&engineInstance, &schedule);                                 // Initialize the ECU Values
-
-    sem_unlink(engineSemName);      // Remove any previous SEM or SHM objects
+    sem_unlink(engineSemName);                                              // Remove any previous SEM or SHM objects
     shm_unlink(name);
 
-    engineSem = sem_open(engineSemName, O_CREAT, 0666, 1);                    // Create the semaphore
+    engineSem = sem_open(engineSemName, O_CREAT, 0666, 1);                  // Create the semaphore
 
     if (engineSem == SEM_FAILED){
         perror("failed to open semophore!!! Exiting");
         return 1;
     }
 
-    sharedEngineMem = shm_open(name, O_CREAT | O_RDWR, 0666);           // Create the shared memory
+    sharedEngineMem = shm_open(name, O_CREAT | O_RDWR, 0666);               // Create the shared memory
     if (sharedEngineMem == -1){
         perror("failed to open shared memory!!! Exiting");
         sem_close(engineSem);
@@ -184,17 +198,27 @@ int main(){
         return 1;
     }
 
-    struct Engine *sharedData = (struct Engine *)mappedPtr;                       // define object pointer with type of engine struct and cast onto shared memory
+    /*
+    ##################################
+    ######## PRIMARY ECU LOOP ########
+    ##################################
+    */
+
+    struct Engine *sharedData = (struct Engine *)mappedPtr;                 // define object pointer with type of engine struct and cast onto shared memory
+
+    initValues(&engineInstance, &schedule);                                 // Initialize the ECU Values
+
     *sharedData = engineInstance;                                           // update shared memory with real ECU instance
 
     while(1){
-        sem_wait(engineSem);        // Lock SEM for data update
+        sem_wait(engineSem);                        // Lock SEM for data update
 
-        engineInstance = *sharedData;              // Pull latest shared state back into local ECU copy
-        performStep(&engineInstance, &schedule);   // Update ECU
+        engineInstance = *sharedData;               // Pull latest shared state back into local ECU copy
 
-        *sharedData = engineInstance;              // Update shared data
+        performStep(&engineInstance, &schedule);    // Update ECU state
 
-        sem_post(engineSem);        // Unlock SEM for other programs
+        *sharedData = engineInstance;               // Push shared data to shared memory
+
+        sem_post(engineSem);                        // Unlock SEM for other systems
     }
 }
