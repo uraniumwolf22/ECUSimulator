@@ -18,25 +18,25 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 
 void initValues(struct Engine *eng, struct ECUSchedule *sched){
 
-    eng->AFR_TARGET                 = onBootAFR;                    // * AFR target on startup
-    eng->coldCoolant                = coldStartTemp;                // * Tempurature under which is considered cold start
+    eng->toeEnrichmentMultiplier    = 1;                            // * Set initial enrichment multiplier
     eng->displacementPerRev         = engineDisplacement / 2;       // * Engine displacement per revolution
+    eng->coldCoolant                = coldStartTemp;                // * Tempurature under which is considered cold start
+    eng->AFR_TARGET                 = onBootAFR;                    // * AFR target on startup
     eng->fuelTrim                   = initFuelTrim;                 // * Initial fuel trim
-    eng->IAT                        = KtoFConversion(68);           // * Set intake air temp to room tempurature
-    eng->toeEnrichmentMultiplier    = 1;
     eng->REALAFR                    = eng->AFR_TARGET;              // * Set the REALAFR to its initial value
-    eng->AAP                        = 101;
+    eng->IAT                        = KtoFConversion(68);           // * Set intake air temp to room tempurature
+    eng->AAP                        = 101;                          // * Set starting ambient air pressure
 
+    sched->crankCheckInterval       = crankCheck / 10;              // * Cranking scheduler interval
+    sched->TPSCheckInterval         = TPSCheck   / 10;              // * TPS Check interval
     sched->ECULoopSize              = loopSize;                     // * Set the total scheduler loop size
     sched->ECUStep                  = 0;                            // * What step the ECU is on in the loop
-    sched->crankCheckInterval       = crankCheck / 10;                            // * Cranking scheduler interval
-    sched->TPSCheckInterval         = TPSCheck   / 10;              // * TPS Check interval
 
     sched->loopIntervalTimeBase     = get_time_in_ms();             // * Set the base time the the current system time
     sched->STFTCheckInterval        = STFTInterval / 10;            // * STFT Scheduler interval
-
-    sched->STFTCheckLock            = false;                        // * STFT Scheduler lock
+    
     sched->CrankCheckLock           = false;                        // * Cranking scheduler lock
+    sched->STFTCheckLock            = false;                        // * STFT Scheduler lock
     sched->TPSCheckLock             = false;                        // * TPS Check scheduler lock
 
 }
