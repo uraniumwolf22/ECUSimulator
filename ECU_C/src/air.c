@@ -4,28 +4,17 @@
 
 
 void calculateVE(struct Engine *eng){               // Calculate the engine VE
-    int MAPBin = 0;
-    int RPMBin = 0;
 
-    for(int i = MAP_BINS - 1 ; i >= 0; i--){        // Calculate bin of MAP
-        if(eng->MAP  >= mapAxis[i] ){               // Check if we are in the correct bin
-            MAPBin = (i == 0) ? 0 : i;              // Make sure the bin isnt negative
-            break;
-        }
-    }
+    int MAPBin = calculateLowerBinIdx(eng->MAP, mapAxis, MAP_BINS);                         // Calculate lower index of the MAP bin 
 
-    for(int i = RPM_BINS - 1; i >= 0; i--){         // Calculate bin of RPM
-        if(eng->RPM >= rpmAxis[i] ){                // Check if we are in the correct bin
-            RPMBin = (i == 0) ? 0 : i;              // Make sure the bin isnt nagative
-            break;
-        }
-    }
+    int RPMBin = calculateLowerBinIdx(eng->RPM, rpmAxis, RPM_BINS);                         // Calculate lower index of the RPM bin
 
+    
     RPMBin = RPMBin > RPM_BINS - 2 ? RPM_BINS - 2 : RPMBin;
 
-    int VEIndex = (MAPBin * RPM_BINS) + RPMBin;     // Calculate VE value in 1D table using calculated bins (Y Axis * Bins per row) + X Axis
+    int VEIndex = (MAPBin * RPM_BINS) + RPMBin;                                             // Calculate VE value in 1D table using calculated bins (Y Axis * Bins per row) + X Axis
 
-    int16_t RPMDelta = eng->RPM - rpmAxis[RPMBin];  // How far the actual RPM is from the bottom of the bin
+    int16_t RPMDelta = eng->RPM - rpmAxis[RPMBin];                                          // How far the actual RPM is from the bottom of the bin
 
     RPMDelta = RPMDelta < 0 ? 0 : RPMDelta > rpmAxis[0] ? rpmAxis[0] : RPMDelta;            // Clamp delta
 
