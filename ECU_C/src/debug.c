@@ -151,8 +151,7 @@ static void tui_line(const char *fmt, ...){
 }
 
 static void tui_section(const char *title){
-    // Left-aligned title so every divider lines up straight
-    // Form: ╠═ TITLE ════════...════════╣
+
     int titleLen = (int)strlen(title);
     int used = 1 + 1 + titleLen + 1; // "═" + " " + title + " "
     int right = TUI_INNER - used;
@@ -165,7 +164,7 @@ static void tui_section(const char *title){
 }
 
 static void tui_divider(void){
-    // Full-width section border with no title: ╠════════...════════╣
+
     printf("╠");
     for (int i = 0; i < TUI_INNER; i++) printf("═");
     printf("╣\n");
@@ -312,7 +311,7 @@ void debugDisplay(void){
     if (eng->RPM > peakRPM) peakRPM = eng->RPM;
     if (eng->fuelLoad > peakFuelLoad) peakFuelLoad = eng->fuelLoad;
 
-    // Anomaly flags (sticky: hold 1s after clear, track active duration)
+    // Anomaly flags
     {
         char msg[48];
 
@@ -346,7 +345,7 @@ void debugDisplay(void){
         if (warnSlots[i].sinceMs != 0) warnCount++;
     }
 
-    // Scheduler timing (from snapshot)
+    // Scheduler timing
     long long stepAgeMs = s.captureMs - sched->loopIntervalTimeBase;
     int crankDue = 0, tpsDue = 0, stftDue = 0;
     int overdue = (stepAgeMs > (loopTime + 1));
@@ -432,7 +431,6 @@ void debugDisplay(void){
     tui_line("  LTFT cell %3d (map %2d, rpm %2d) = %+7.2f",
              ltftCell, ltftMapBin, ltftRpmBin, s.ltft[ltftCell]);
 
-    // LTFT neighborhood: 3x3 around current lower bins, [] = active interp quad
     {
         int rpmLo = ltftRpmBin;
         int rpmHi = (ltftRpmBin < LTFTRPM_BINS - 1) ? ltftRpmBin + 1 : ltftRpmBin;
