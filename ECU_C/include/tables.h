@@ -1,13 +1,14 @@
 #ifndef TABLES_H
 #define TABLES_H
+//////// TABLE SIZES ////////
 
-#include "includes.h"
-
-#define MAP_BINS 10
-#define RPM_BINS 10
+#define MAP_BINS 16
+#define RPM_BINS 16
 
 #define LTFTRPM_BINS 16
 #define LTFTMAP_BINS 16
+
+#include "includes.h"
 
 extern const uint16_t mapAxis[MAP_BINS];
 
