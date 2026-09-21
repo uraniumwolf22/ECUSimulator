@@ -5,7 +5,7 @@
 #include <stdarg.h>
 
 /* -------- non-interactive TUI helpers (debug only) -------- */
-#define TUI_W       78
+#define TUI_W       100
 #define TUI_INNER   (TUI_W - 2)
 #define C_RESET     "\e[0m"
 #define C_BOLD      "\e[1m"
@@ -610,7 +610,6 @@ void debugDisplay(void){
     const char *afrColor = (fabsf(afrError) > 3.0f) ? C_RED : (fabsf(afrError) > 1.0f) ? C_YELLOW : C_GREEN;
     const char *ageColor = overdue ? C_RED : (stepAgeMs > loopTime / 2) ? C_YELLOW : C_GREEN;
     const char *learnC = learning ? C_YELLOW C_BOLD : C_DIM;
-    const char *ltftOnC = ltftApplied ? C_GREEN C_BOLD : C_DIM;
 
     float hz = 1.0f / dtSec;
     if (hz > 99.0f) hz = 99.0f;
@@ -638,21 +637,23 @@ void debugDisplay(void){
              learning ? "●" : "○", C_RESET,
              ltftApplied ? C_GREEN C_BOLD : C_DIM,
              ltftApplied ? "●" : "○", C_RESET);
-    tui_line("  crank %+5d rpm to %d    cool %+4d F to %d    O2 loop always on",
+    tui_line("  crank %+5d rpm to %d    cool %+4d F to %d F    O2 loop always on",
              crankMargin, CRANKING_RPM, coolMargin, eng->coldCoolant);
 
     tui_section("SENSORS");
-    tui_line("  TPS  %s%s%s %s%5.0f%%%s   RPM  %s%s%s %s%5.0f%s",
+    tui_line("  TPS  %s%s%s %s%5.0f%%%s   RPM  %s%s%s %s%5.0f%s rpm",
              tpsColor, barTPS, C_RESET, tpsColor, dTPS, C_RESET,
              C_CYAN, barRPM, C_RESET, C_BOLD, dRPM, C_RESET);
-    tui_line("  MAP  %s%s%s %s%5.0f%s kPa  AAP %s%5.0f%s  vac %5.0f  IAT %5.0f K  COOL %5.0f F",
+    tui_line("  MAP  %s%s%s %s%5.0f%s kPa  AAP %s%5.0f%s kPa  vac %5.0f kPa",
              C_CYAN, barMAP, C_RESET, C_BOLD, dMAP, C_RESET,
-             C_BOLD, dAAP, C_RESET, dVac, dIAT, dCool);
-    tui_line("  thr %5.2f   TPS/s %+7.0f  RPM/s %+7.0f  MAP/s %+6.0f  dTPS %+5.0f",
-             dThr, dTpsRate, dRpmRate, dMapRate, dDeltaTPS);
+             C_BOLD, dAAP, C_RESET, dVac);
+    tui_line("  IAT %5.0f K   COOL %5.0f F   thr %5.2f",
+             dIAT, dCool, dThr);
+    tui_line("  rates  TPS %+6.0f %%/s  RPM %+7.0f rpm/s  MAP %+6.0f kPa/s  dTPS %+5.0f %%",
+             dTpsRate, dRpmRate, dMapRate, dDeltaTPS);
 
     tui_section("TRIM");
-    tui_line("  STFT %s%+7.2f%%%s  head %s%+6.2f%s  step %+6.2f  %s%s%s",
+    tui_line("  STFT %s%+7.2f%%%s  head %s%+6.2f%%%s  step %+6.2f AFR  %s%s%s",
              C_BOLD, dSTFT, C_RESET,
              (stftHead > 0.0f) ? C_YELLOW : C_DIM, dHead, C_RESET,
              dStep, learnC, learning ? "LEARN" : "hold ", C_RESET);
@@ -668,44 +669,44 @@ void debugDisplay(void){
                  learning ? C_YELLOW C_BOLD : C_DIM, ltftDir, C_RESET,
                  totalTrim, lastBuf);
     }
-    tui_line("  AFR  tgt %6.2f  real %6.2f  err %s%+6.2f%s   STFT/s %+6.2f  AFR/s %+6.2f",
+    tui_line("  AFR  tgt %6.2f  real %6.2f  err %s%+6.2f%s   STFT %+6.2f %%/s  AFR %+6.2f /s",
              dAfrT, dAfrR, afrColor, dAfrE, C_RESET, dStftRate, dAfrRate);
     tui_line("  updates  STFT %-8llu  LTFT writes %-8llu",
              stftUpdateCount, ltftWriteCount);
 
     tui_section("TOE");
-    tui_line("  dTPS %+5.0f  deadband %d  cand %5.2f  decay %d%%  now %s%5.3f%s  %s%s%s",
+    tui_line("  dTPS %+5.0f %%  deadband %d %%  cand x%5.2f  decay %d%%  now x%s%5.3f%s  %s%s%s",
              dDeltaTPS, TPSDeadband, toeCand, toeInEnrichmentDecay,
              C_BOLD, dToe, C_RESET,
              toeActive ? C_CYAN C_BOLD : C_DIM,
              toeActive ? "ACTIVE" : "idle  ", C_RESET);
 
     tui_section("FUEL");
-    tui_line("  LOAD %s%s%s %s%5.0f%s g/m   VE %s%s%s %s%3.0f%%%s   fuel/s %+7.0f",
+    tui_line("  LOAD %s%s%s %s%5.0f%s g/m   VE %s%s%s %s%3.0f%%%s   dLOAD %+7.0f g/m/s",
              C_MAGENTA, barLoad, C_RESET, C_BOLD, dLoad, C_RESET,
              C_CYAN, barVE, C_RESET, C_BOLD, dVE, C_RESET,
              dFuelRate);
-    tui_line("  air  flow/min %-8.0f  dens %-7.0f  airFlow %-8.0f  airMass %-8.0f",
-             dFlow, dDens, dAFlw, dAMass);
-    tui_line("  raw %5.0f  ->  out %s%6.1f%s g/m",
-             dRaw, C_BOLD, dPred, C_RESET);
+    tui_line("  air  flow %6.0f L/min  dens %5.0f x10kg/m3  airFlow %6.0f L/min",
+             dFlow, dDens, dAFlw);
+    tui_line("  airMass %8.0f scaled   raw %5.0f g/m  ->  out %s%6.1f%s g/m",
+             dAMass, dRaw, C_BOLD, dPred, C_RESET);
     tui_line("  x    cold %5.2f  crank %5.2f  trim %5.2f  toe %5.2f  stft %6.3f  ltft %6.3f",
              dColdM, dCrankM, dTrimM, dToeM, dStftM, dLtftM);
-    tui_line("  add  cold%+6.1f  crank%+6.1f  trim%+6.1f  toe%+6.1f  stft%+6.1f  ltft%+6.1f",
+    tui_line("  add  cold%+6.1f  crank%+6.1f  trim%+6.1f  toe%+6.1f  stft%+6.1f  ltft%+6.1f g/m",
              dCCold, dCCrank, dCTrim, dCToe, dCStft, dCLtft);
     if (eng->fuelTrim != 1) {
-        tui_line("  manual trim %u", eng->fuelTrim);
+        tui_line("  manual trim x%u", eng->fuelTrim);
     }
 
     tui_section("MAPS");
-    tui_line("  MAP bin %2d  [%4u  %4u  %4u]     RPM bin %2d  [%4u  %4u  %4u]",
+    tui_line("  MAP bin %2d  [%4u  %4u  %4u] kPa   RPM bin %2d  [%4u  %4u  %4u] rpm",
              mapBin,
              mapAxis[mapBin], eng->MAP,
              (mapBin < MAP_BINS - 1) ? mapAxis[mapBin + 1] : mapAxis[mapBin],
              rpmBin,
              rpmAxis[rpmBin], eng->RPM,
              (rpmBin < RPM_BINS - 1) ? rpmAxis[rpmBin + 1] : rpmAxis[rpmBin]);
-    tui_line("  VE   %5.1f  cells %5.1f -> %5.1f  ratio %4.2f  idx %3d",
+    tui_line("  VE   %5.1f %%  cells %5.1f -> %5.1f %%  ratio %4.2f  idx %3d",
              dVE, dVeLo, dVeHi, dVeR, veIndex);
     tui_line("  AFR  %5.2f  rpm+ %5.2f  map+ %5.2f  idx %3d",
              afrHere, afrRpmN, afrMapN, afrIndex);
@@ -747,7 +748,7 @@ void debugDisplay(void){
         float dShareBR = dbg_smooth(&smShareBR, shareBR, DBG_SMOOTH_A);
 
         tui_section("LTFT");
-        tui_line("  MAP\\RPM  %5u   %5u   %5u     cell %3d = %+6.2f",
+        tui_line("  MAP\\RPM  %5u   %5u   %5u rpm   cell %3d = %+6.2f %%",
                  LTFTRPMAxis[rpmStart],
                  LTFTRPMAxis[rpmStart + 1],
                  LTFTRPMAxis[rpmStart + 2],
@@ -767,13 +768,13 @@ void debugDisplay(void){
                     snprintf(dst, 16, " %+5.2f ", s.ltft[idx]);
                 }
             }
-            tui_line("  %3ukPa  %s %s %s",
+            tui_line("  %3ukPa  %s %s %s %%",
                      LTFTMAPAxis[m], c0, c1, c2);
         }
 
-        tui_line("  shares  TL %5.2f  TR %5.2f  BL %5.2f  BR %5.2f",
+        tui_line("  shares  TL %5.2f  TR %5.2f  BL %5.2f  BR %5.2f  (0-1)",
                  dShareTL, dShareTR, dShareBL, dShareBR);
-        tui_line("  table   nz %3d/256  mean %+6.2f  min %+6.2f  max %+6.2f",
+        tui_line("  table   nz %3d/256  mean %+6.2f %%  min %+6.2f %%  max %+6.2f %%",
                  ltftNz, ltftMean, ltftMin, ltftMax);
     }
 
@@ -783,7 +784,7 @@ void debugDisplay(void){
              ageColor, barAge, C_RESET, ageColor, dAge, C_RESET, loopTime,
              overdue ? C_RED C_BOLD : C_GREEN, overdue ? "YES" : "no", C_RESET,
              skipDebt);
-    tui_line("  next   crank %3dms   TPS %3dms   STFT/LTFT %3dms",
+    tui_line("  next   crank %3d ms   TPS %3d ms   STFT/LTFT %3d ms",
              crankDueMs, tpsDueMs, stftDueMs);
     tui_line("  ran    crank %s%s%s   toe %s%s%s   STFT+LTFT %s%s%s",
              s.crankRan ? C_GREEN C_BOLD : C_DIM, s.crankRan ? "●" : "○", C_RESET,
@@ -798,19 +799,20 @@ void debugDisplay(void){
     }
 
     tui_section("SESSION");
-    tui_line("  warm %5.1fs (%4.0f%%)   AFR lean %5.1fs  rich %5.1fs  inband %5.1fs",
+    tui_line("  warm %5.1f s (%4.0f%% up)   AFR lean %5.1f s  rich %5.1f s  inband %5.1f s",
              warmSec, warmPct,
              (float)afrLeanMs / 1000.0f,
              (float)afrRichMs / 1000.0f,
              (float)afrInbandMs / 1000.0f);
-    tui_line("  peak  TPS %-4u  RPM %-5u  load %-5u  |dTPS| %-4lld  |STFT| %5.1f  |LTFT| %5.1f",
-             peakTPS, peakRPM, peakFuelLoad, peakDeltaTPS, peakAbsSTFT, peakAbsLTFT);
-    tui_line("  peak |AFR err| %5.2f", peakAfrErr);
+    tui_line("  peak  TPS %u %%  RPM %u rpm  load %u g/m  |dTPS| %lld %%",
+             peakTPS, peakRPM, peakFuelLoad, peakDeltaTPS);
+    tui_line("  peak  |STFT| %5.1f %%  |LTFT| %5.1f %%  |AFR err| %5.2f AFR",
+             peakAbsSTFT, peakAbsLTFT, peakAfrErr);
 
     tui_section("TUNE");
-    tui_line("  STFT  db ±%-2d  damp %.1f     LTFT  sc %.1f",
+    tui_line("  STFT  db ±%-2d %%  damp x%.1f     LTFT  sc %.1f %%/step",
              STFTDEADBAND, (float)STFTCorrectionDamper, (float)LTFTSCALAR);
-    tui_line("  toe   db %-2d  x%.2f  decay %d%%         cold x%.1f  crank x%.1f",
+    tui_line("  toe   db %-2d %%  x%.2f  decay %d%%         cold x%.1f  crank x%.1f",
              TPSDeadband, (float)toeEnrichment, toeInEnrichmentDecay,
              (float)coldStartEnrichment, (float)crankingEnrichment);
 
