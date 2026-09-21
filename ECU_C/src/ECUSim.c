@@ -15,6 +15,7 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 #include "fueling.h"
 #include "utils.h"
 #include "air.h"
+#include "debug.h"
 
 
 void initValues(struct Engine *eng, struct ECUSchedule *sched){
@@ -218,8 +219,12 @@ int main(){
 
         performStep(&engineInstance, &schedule);    // Update ECU state
 
+        debugCapture(&engineInstance, &schedule);   // Snapshot for debug TUI (fast)
+
         *sharedData = engineInstance;               // Push shared data to shared memory
 
         sem_post(engineSem);                        // Unlock SEM for other systems
+
+        debugDisplay();                             // Render snapshot at ~7 Hz (outside lock)
     }
 }

@@ -5,6 +5,7 @@ from math import sqrt, pi
 from RPMFunctions import *
 from MAPFunctions import *
 from EngineTunables import *
+from PlantErrorTable import *
 from engineStruct import Engine
 from multiprocessing import shared_memory
 import random
@@ -37,26 +38,40 @@ torque_percent  = [75, 80, 85, 88,
                    86, 78, 69, 60]
 
 
-def simulate_wideband_o2(target_afr, current_tps, last_tps, current_rpm, current_afr_reading, time_step):
+def simulate_wideband_o2(target_afr, current_tps, last_tps, current_rpm, current_map,
+                         stft, ltft, current_afr_reading, time_step):
 
-    noise = random.gauss(0, 0.05)
-    
+    # * Plant fuel error (%) — what the true engine needs vs ECU tables
+    plantError = lookupPlantFuelError(current_rpm, current_map)
+
+    # * ECU commanded trim (matches correctFuelLoad: STFT then LTFT)
+    ecuTrim = (1.0 + (stft / 100.0)) * (1.0 + (ltft / 100.0))
+    if ecuTrim < 0.01:
+        ecuTrim = 0.01
+
+    plantNeed = 1.0 + (plantError / 100.0)
+
+    # * Closed loop: lean if plant needs more fuel than ECU is delivering
+    closed_loop_afr = target_afr * (plantNeed / ecuTrim)
+
+    noise = random.gauss(0, 0.03)                       # Sensor noise (zero mean)
+
     delta_tps = current_tps - last_tps
 
-    transient_effect = delta_tps * 0.08 
-    
-    instant_exhaust_afr = target_afr + transient_effect + noise
-    
+    transient_effect = delta_tps * 0.12                 # Tip-in / tip-out spike
+
+    instant_exhaust_afr = closed_loop_afr + transient_effect + noise
+
     clamped_rpm = max(current_rpm, 100)
-    
-    base_response = 0.5
+
+    base_response = 2.0
 
     response_rate = base_response * (clamped_rpm / 3000.0) * time_step
-    
+
     alpha = min(1.0, max(0.01, response_rate))
-    
+
     new_afr_reading = current_afr_reading + (instant_exhaust_afr - current_afr_reading) * alpha
-    
+
     return new_afr_reading
 
 
@@ -88,6 +103,8 @@ def main():
             throttleArea = butterflyPercentOpen * throttleBodySize * dischargeCoeff
 
             currentAFRT = engineStatus.AFR_TARGET
+            currentSTFT = engineStatus.STFTCorrection
+            currentLTFT = engineStatus.LTFTCorrection
 
             ######## RPM PHYSICS ########
 
@@ -108,12 +125,15 @@ def main():
             # Clamp MAP to atmosphere
             engineStatus.MAP = min(int(calculated_map / 1000), int(atmosphericPressure / 1000))
 
-            ######## AFR NOISE ########
+            ######## AFR / CLOSED LOOP ########
             simulated_afr = simulate_wideband_o2(
-                            target_afr=currentAFRT, 
-                            current_tps=currentTPS, 
-                            last_tps=last_tps, 
-                            current_rpm=currentRPM, 
+                            target_afr=currentAFRT,
+                            current_tps=currentTPS,
+                            last_tps=last_tps,
+                            current_rpm=currentRPM,
+                            current_map=engineStatus.MAP,
+                            stft=currentSTFT,
+                            ltft=currentLTFT,
                             current_afr_reading=simulated_afr,
                             time_step=timeStep
                         )
@@ -131,8 +151,9 @@ def main():
 
                 if engineStatus.RPM > idleRPM:
 
-                    idlectl = idlectl - 1
-                    engineStatus.TPS = int(idlectl / 10)
+                    if idlectl > 0:
+                        idlectl = idlectl - 1
+                        engineStatus.TPS = int(idlectl / 10)
                     
             
 

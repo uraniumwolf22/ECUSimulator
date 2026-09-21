@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "tunables.h"
 
 word16 KtoFConversion(int F){           // Convert F to K
     return ((F-32) * 5 / 9) + 273.15;
@@ -15,9 +16,12 @@ int calculateLowerBinIdx(int value, const uint16_t axis[], int numBins){    // C
     int currentBinIdx = 0;
     for(int i = numBins - 1; i >= 0; i--){
         if (value >= axis[i]){
-            currentBinIdx = (i == 0) ? 0 : i - 1;
+            currentBinIdx = i;                                              // Axis point we are at or past
             break;
         }
+    }
+    if (currentBinIdx > numBins - 2){                                       // Leave room for upper = lower + 1
+        currentBinIdx = numBins - 2;
     }
     return currentBinIdx;
 }
@@ -55,6 +59,7 @@ void cleanup_ipc(void){                                 // Clean up the semaphor
 
 void handle_signal(int signalNumber){
     (void)signalNumber;
+    printf("\e[?25h\e[0m\n");  // restore cursor / colors
     cleanup_ipc();
     _exit(0);
 }

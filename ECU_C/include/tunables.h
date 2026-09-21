@@ -41,6 +41,8 @@
 #define engineDisplacement      4
 
 //////// MISC ////////
+
+#define maxFuelLoad             1500    // Max fuel load in g/s
 #define onBootAFR               12.5    // AFR Value to initialize with
 #define CRANKING_RPM            250     // RPM below which we consider the motor to be cranking
 #define coldStartTemp           100     // Tempurature at which under is considered a cold start

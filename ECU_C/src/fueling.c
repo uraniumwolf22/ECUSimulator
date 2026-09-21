@@ -54,12 +54,14 @@ void calculateSTFT(struct Engine *eng){                                         
         eng->STFTCorrection = MINSTFT;
     }
 
-    if(AFRDELTA >= 0 && eng->STFTCorrection < 0){                               // Snap STFT back to center
+    // Snap STFT back to center only on a clear AFR cross (hysteresis).
+    // A zero threshold lets sensor noise wipe STFT before LTFT can learn.
+    if(AFRDELTA >= 0.15f && eng->STFTCorrection < 0){
         eng->STFTCorrection = 0;
     }
     
-    if(AFRDELTA <= 0 && eng->STFTCorrection > 0){
-    eng->STFTCorrection = 0;
+    if(AFRDELTA <= -0.15f && eng->STFTCorrection > 0){
+        eng->STFTCorrection = 0;
     }
 }
 
@@ -74,8 +76,13 @@ void calculateLTFT(struct Engine *eng){
     int lowerMAPBin = calculateLowerBinIdx(MAPKPA, LTFTMAPAxis, LTFTMAP_BINS);      // Lower bin on Y axis
     int upperMAPBin = lowerMAPBin + 1;                                              // Upper bin on Y axis
 
-    float RPMWeight = (engineRPM - LTFTRPMAxis[lowerRPMBin]) / LTFTRPMAxis[0];      // Calculate bin bias for RPM (X)
-    float MAPWeight = (MAPKPA    - LTFTMAPAxis[lowerMAPBin]) / LTFTMAPAxis[0];      // Calculate bin bias for MAP (Y)
+    float RPMWeight = (float)(engineRPM - LTFTRPMAxis[lowerRPMBin]) / (float)LTFTRPMAxis[0];  // Calculate bin bias for RPM (X)
+    float MAPWeight = (float)(MAPKPA    - LTFTMAPAxis[lowerMAPBin]) / (float)LTFTMAPAxis[0];  // Calculate bin bias for MAP (Y)
+
+    if (RPMWeight < 0.0f) RPMWeight = 0.0f;                                         // Clamp weights to the cell
+    if (RPMWeight > 1.0f) RPMWeight = 1.0f;
+    if (MAPWeight < 0.0f) MAPWeight = 0.0f;
+    if (MAPWeight > 1.0f) MAPWeight = 1.0f;
 
     float topLeftShare     = (1.0 - RPMWeight) * (1.0 - MAPWeight); 
     float topRightShare    =        RPMWeight  * (1.0 - MAPWeight); 
@@ -143,5 +150,7 @@ void correctFuelLoad(struct Engine *eng){
     if (eng->Coldstart == false && eng->EngineCranking == false){                           // Adjust for long term fuel trim if engine is not cranking or cold
         eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->LTFTCorrection / 100));
     }
+
+    eng->fuelLoad = eng->fuelLoad > maxFuelLoad ? maxFuelLoad : eng->fuelLoad;
 
 }
