@@ -3,26 +3,28 @@
 #include "utils.h"
 #include "tables.h"
 
+
 void calculateToeEnrichment(struct Engine *eng){                // Calculated the toe in enrichment based on the speed of the TPS sensor
-    float TEM = 1;                                              // Toe enrichment multiplier
+    float TEM = 1;                                              // Local enrichment multiplier
+
   int16_t deltaTPS = eng->TPS - eng->lastTPSValue;              // Calculate the delta of the TPS sensor over time
-  //printf("TPS_RATE: %d\n",deltaTPS);
-  if(deltaTPS >= TPSDeadband){                                   // Make sure the delta is not outside of the deadband
-    TEM = deltaTPS * toeEnrichment;                              // Scale the toe enrichment factor by the TPS delta
-    //printf("TIE EVENT REGISTERED WITH DELTA OF %d\n",deltaTPS);
+
+  if(deltaTPS >= TPSDeadband){                                  // Make sure the delta is not outside of the deadband
+    TEM = deltaTPS * toeEnrichment;                             // Scale the toe enrichment factor by the TPS delta
    }
 
-  if (TEM < 1){         // Dont let TEM go negative
-    TEM = 1;
-  }
+   TEM = TEM < 1 ? 1 : TEM;                                     // Clamp TEM to positive values
+
   if (eng->toeEnrichmentMultiplier < TEM){
-    eng->toeEnrichmentMultiplier = TEM;     // Set the engine toe enrichment
+    eng->toeEnrichmentMultiplier = TEM;                         // Set TEM to new value if larger than previous
   }
-  eng->lastTPSValue = eng->TPS;             // Set the current TPS to the last, for the next loop
+
+  eng->lastTPSValue = eng->TPS;                                 // Set new TPS value
 
 }
 
-void calculateFuelLoad(struct Engine *eng){         // Calculate engine theoretical fuel loading
+
+void calculateFuelLoad(struct Engine *eng){                                     // Calculate engine theoretical fuel loading
 
     word32 flowPerMinTh = eng->RPM * eng->displacementPerRev;                   // Calculate the theoretical air flow per minute
     word32 Density = (eng->MAP * 10 * 1000 ) / (287 * eng->IAT);                // Calculate the current air density and scale by 1000 to keep percision
@@ -30,23 +32,29 @@ void calculateFuelLoad(struct Engine *eng){         // Calculate engine theoreti
     word32 realAirMass = realAirFlow * Density;                                 // Calculate the real air mass entering the engine still scaled
     word16 fuelLoad = ((realAirMass * 10) / (eng->AFR_TARGET)/60);              // Calculate fuel load and scale back to Grams/Second.
 
-
-    eng->fuelLoad = (word16)fuelLoad;     // cast to int16 and return fuel load in grams per minute
+    eng->fuelLoad = (word16)fuelLoad;                                           // Return fuel load in grams / minute
 }
 
-void calculateSTFT(struct Engine *eng){                     // Calculated STFT correction in %
-    float AFRDELTA = (eng->REALAFR) - (eng->AFR_TARGET);
 
-    float correction = AFRDELTA * STFTCorrectionDamper;       // Intigrate AFR Delta with a damping factor.  May change damping factor based on magnitude of delta
-    eng->STFTCorrection = eng->STFTCorrection + correction; // Add correction to STFT
+void calculateSTFT(struct Engine *eng){                                         // Calculated STFT correction in %
+    float AFRDELTA = (eng->REALAFR) - (eng->AFR_TARGET);                        // Calculate AFR delta
 
-    if(eng->STFTCorrection >= MAXSTFT){                     // Make sure STFT is not maxed out
+    float correction = AFRDELTA * STFTCorrectionDamper;                         // Intigrate AFR Delta with a damping factor
+
+    eng->STFTCorrection = eng->STFTCorrection + correction;                     // Add correction to STFT
+
+
+    if                                                                          // Keep STFT within bounds
+    (eng->STFTCorrection >= MAXSTFT){                             
         eng->STFTCorrection = MAXSTFT;
     }
-    if(eng->STFTCorrection <= MINSTFT){
+
+    else if
+    (eng->STFTCorrection <= MINSTFT){
         eng->STFTCorrection = MINSTFT;
     }
-    if(AFRDELTA >= 0 && eng->STFTCorrection < 0){
+
+    if(AFRDELTA >= 0 && eng->STFTCorrection < 0){                               // Snap STFT back to center
         eng->STFTCorrection = 0;
     }
     
@@ -56,93 +64,84 @@ void calculateSTFT(struct Engine *eng){                     // Calculated STFT c
 }
 
 void calculateLTFT(struct Engine *eng){
-    // X is RPM Y is KPA
-    // X coordinate is the current RPM bin you are in same for Y but with Kpa
+
     int engineRPM = eng->RPM;
     word16 MAPKPA = eng->MAP;
 
-    // Find upper and lower bins of RPM (X)
     int lowerRPMBin = calculateLowerBinIdx(engineRPM, LTFTRPMAxis, LTFTRPM_BINS);   // Lower bin on X axis
     int upperRPMBin = lowerRPMBin + 1;                                              // Upper bin on X axis
 
-    // Find upper and lower bins of MAP (Y)
     int lowerMAPBin = calculateLowerBinIdx(MAPKPA, LTFTMAPAxis, LTFTMAP_BINS);      // Lower bin on Y axis
     int upperMAPBin = lowerMAPBin + 1;                                              // Upper bin on Y axis
 
-    float RPMWeight = (engineRPM - LTFTRPMAxis[lowerRPMBin]) / LTFTRPMAxis[0];           // Calculate bin bias for RPM (X)
-    float MAPWeight = (MAPKPA - LTFTMAPAxis[lowerMAPBin]) / LTFTMAPAxis[0];              // Calculate bin bias for MAP (Y)
-
-    //printf("RPMWeight: %f\nMAPWeight: %f\n");
+    float RPMWeight = (engineRPM - LTFTRPMAxis[lowerRPMBin]) / LTFTRPMAxis[0];      // Calculate bin bias for RPM (X)
+    float MAPWeight = (MAPKPA    - LTFTMAPAxis[lowerMAPBin]) / LTFTMAPAxis[0];      // Calculate bin bias for MAP (Y)
 
     float topLeftShare     = (1.0 - RPMWeight) * (1.0 - MAPWeight); 
-    float topRightShare    = RPMWeight         * (1.0 - MAPWeight); 
-    float bottomLeftShare  = (1.0 - RPMWeight) * MAPWeight;         
-    float bottomRightShare = RPMWeight         * MAPWeight;
+    float topRightShare    =        RPMWeight  * (1.0 - MAPWeight); 
+    float bottomLeftShare  = (1.0 - RPMWeight) *        MAPWeight;         
+    float bottomRightShare =        RPMWeight  *        MAPWeight;
 
-    // Calculate cell indexes
-    int topLeftCell_idx = (lowerMAPBin * LTFTRPM_BINS) + lowerRPMBin;           // Index of top left cell
-    int topRightCell_idx = (lowerMAPBin * LTFTRPM_BINS) + upperRPMBin;          // Index of top right cell
-    int bottomLeftCell_idx = (upperMAPBin * LTFTRPM_BINS) + lowerRPMBin;        // Index of bottom left cell
-    int bottomRightCell_idx = (upperMAPBin * LTFTRPM_BINS) + upperRPMBin;       // Index of bottom right cell
-
-    //printf("\e[H\nTLIDX: %d\nTRIDX: %d\nBLIDX: %d\nBRIDX: %d\n",topLeftCell_idx,topRightCell_idx,bottomLeftCell_idx,bottomRightCell_idx);
-
+    int topLeftCell_idx     = (lowerMAPBin * LTFTRPM_BINS) + lowerRPMBin;           // Index of top left cell
+    int topRightCell_idx    = (lowerMAPBin * LTFTRPM_BINS) + upperRPMBin;           // Index of top right cell
+    int bottomLeftCell_idx  = (upperMAPBin * LTFTRPM_BINS) + lowerRPMBin;           // Index of bottom left cell
+    int bottomRightCell_idx = (upperMAPBin * LTFTRPM_BINS) + upperRPMBin;           // Index of bottom right cell
 
     float stepDirection = 0.0;
 
-    if (eng->STFTCorrection > STFTDEADBAND){      // Check if we are in deadband
-        stepDirection = 1.0;                    // Adding fuel,  so step up LTFT
+    if (eng->STFTCorrection > STFTDEADBAND){                                        // Check if we are in deadband
+          stepDirection = 1.0;                                                      // Raise LTFT on addition of fuel
 
     } else if (eng->STFTCorrection < -STFTDEADBAND){
-        stepDirection = -1.0;                   // Removing fuel, lower LTFT
+         stepDirection = -1.0;                                                      // Lower LTFT on subtraction of fuel
     }
 
     if (stepDirection != 0.0) {
-        LTFT[bottomLeftCell_idx]  += (stepDirection * LTFTSCALAR * bottomLeftShare);    // Adjust each cell according to its share
+        LTFT[bottomLeftCell_idx]  += (stepDirection * LTFTSCALAR * bottomLeftShare);        // Adjust each cell according to its share
         LTFT[bottomRightCell_idx] += (stepDirection * LTFTSCALAR * bottomRightShare);
         LTFT[topLeftCell_idx]     += (stepDirection * LTFTSCALAR * topLeftShare);
         LTFT[topRightCell_idx]    += (stepDirection * LTFTSCALAR * topRightShare);
 
-        if (LTFT[bottomLeftCell_idx] > MAXLTFT) LTFT[bottomLeftCell_idx] = MAXLTFT;
+        if (LTFT[bottomLeftCell_idx] > MAXLTFT) LTFT[bottomLeftCell_idx] = MAXLTFT;         // Clamp bottom left cell
         if (LTFT[bottomLeftCell_idx] < MINLTFT) LTFT[bottomLeftCell_idx] = MINLTFT;
         
-        if (LTFT[bottomRightCell_idx] > MAXLTFT) LTFT[bottomRightCell_idx] = MAXLTFT;
+        if (LTFT[bottomRightCell_idx] > MAXLTFT) LTFT[bottomRightCell_idx] = MAXLTFT;       // Clamp bottom right cell
         if (LTFT[bottomRightCell_idx] < MINLTFT) LTFT[bottomRightCell_idx] = MINLTFT;
         
-        if (LTFT[topLeftCell_idx] > MAXLTFT) LTFT[topLeftCell_idx] = MAXLTFT;
+        if (LTFT[topLeftCell_idx] > MAXLTFT) LTFT[topLeftCell_idx] = MAXLTFT;               // Clamp top left cell
         if (LTFT[topLeftCell_idx] < MINLTFT) LTFT[topLeftCell_idx] = MINLTFT;
         
-        if (LTFT[topRightCell_idx] > MAXLTFT) LTFT[topRightCell_idx] = MAXLTFT;
+        if (LTFT[topRightCell_idx] > MAXLTFT) LTFT[topRightCell_idx] = MAXLTFT;             // Clamp top right cell
         if (LTFT[topRightCell_idx] < MINLTFT) LTFT[topRightCell_idx] = MINLTFT;
     }
 
-    eng->LTFTCorrection = (LTFT[bottomLeftCell_idx]  * bottomLeftShare)  +              // Interpolate the LTFT table to get fuel correction multiplier
+    eng->LTFTCorrection = (LTFT[bottomLeftCell_idx]  * bottomLeftShare)  +                  // Interpolate the LTFT table to get fuel correction multiplier
                           (LTFT[bottomRightCell_idx] * bottomRightShare) +
                           (LTFT[topLeftCell_idx]     * topLeftShare)     +
                           (LTFT[topRightCell_idx]    * topRightShare);
-
 }
 
 void correctFuelLoad(struct Engine *eng){
-    if(eng->Coldstart == true && eng->COOLANT <= eng->coldCoolant){
-        eng->fuelLoad = eng->fuelLoad * coldStartEnrichment;    //TODO: Convert this to adjusting Target AFR not actual fuel load
+    if(eng->Coldstart == true && eng->COOLANT <= eng->coldCoolant){                         // Adjust fuel loading for cold starts
+        eng->fuelLoad = eng->fuelLoad * coldStartEnrichment;
     } else {
         eng->Coldstart = false;
     }
-    if (eng->EngineCranking == true){                           //TODO: Convert this to adjusting Target AFR not actual fuel load
+
+    if (eng->EngineCranking == true){                                                       // Adjust fuel loading for engine cranking
         eng->fuelLoad = eng->fuelLoad * crankingEnrichment;
     }
-    if (eng->fuelTrim != 1){
+
+    if (eng->fuelTrim != 1){                                                                // Adjust fuel loading for manual fuel trim
         eng->fuelLoad = eng->fuelLoad * eng->fuelTrim;
     }
 
-    //TODO: You will need to condition the function to take the multiplier and convert it into actually how much the fuel load should change
-    eng->fuelLoad = eng->fuelLoad * eng->toeEnrichmentMultiplier;
+    eng->fuelLoad = eng->fuelLoad * eng->toeEnrichmentMultiplier;                           // Adkist fuel loading for toe in enrichment
 
-    //TODO:  
-    eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->STFTCorrection / 100));    // Adjust for STFT
+    eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->STFTCorrection / 100));          // Adjust fuel loading for short term O2 correction
 
-    // LTFT probably should not update during cranking or cold start
-    eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->LTFTCorrection / 100));
+    if (eng->Coldstart == false && eng->EngineCranking == false){                           // Adjust for long term fuel trim if engine is not cranking or cold
+        eng->fuelLoad = eng->fuelLoad + (eng->fuelLoad * (eng->LTFTCorrection / 100));
+    }
 
 }

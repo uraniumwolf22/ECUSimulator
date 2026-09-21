@@ -16,6 +16,7 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 #include "utils.h"
 #include "air.h"
 
+
 void initValues(struct Engine *eng, struct ECUSchedule *sched){
 
     eng->toeEnrichmentMultiplier    = 1;                            // * Set initial enrichment multiplier
@@ -40,6 +41,7 @@ void initValues(struct Engine *eng, struct ECUSchedule *sched){
     sched->TPSCheckLock             = false;                        // * TPS Check scheduler lock
 
 }
+
 
 void performStep(struct Engine *eng, struct ECUSchedule *sched){
     /*
@@ -112,7 +114,6 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
 
     correctFuelLoad(eng);
 
-
     /*
     ##################################
     ######## UPDATE SCHEDULER ########
@@ -123,7 +124,7 @@ void performStep(struct Engine *eng, struct ECUSchedule *sched){
 
     if(currentTime - sched->loopIntervalTimeBase >= loopTime){          // Check if single loop interation time has passed
 
-        sched->ECUStep++;
+        sched->ECUStep++;                   // Incriment ECU step
 
         sched->TPSCheckLock     = false;    // Turn off locks
         sched->CrankCheckLock   = false;

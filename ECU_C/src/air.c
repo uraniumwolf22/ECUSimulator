@@ -2,15 +2,13 @@
 #include "utils.h"
 
 
-
 void calculateVE(struct Engine *eng){               // Calculate the engine VE
 
     int MAPBin = calculateLowerBinIdx(eng->MAP, mapAxis, MAP_BINS);                         // Calculate lower index of the MAP bin 
 
     int RPMBin = calculateLowerBinIdx(eng->RPM, rpmAxis, RPM_BINS);                         // Calculate lower index of the RPM bin
 
-    
-    RPMBin = RPMBin > RPM_BINS - 2 ? RPM_BINS - 2 : RPMBin;
+    RPMBin = RPMBin > RPM_BINS - 2 ? RPM_BINS - 2 : RPMBin;                                 // Clamp the RPM Bin
 
     int VEIndex = (MAPBin * RPM_BINS) + RPMBin;                                             // Calculate VE value in 1D table using calculated bins (Y Axis * Bins per row) + X Axis
 
